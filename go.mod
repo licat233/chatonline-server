@@ -20,8 +20,10 @@ require (
 	github.com/judwhite/go-svc v1.2.1
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/minio/minio-go/v7 v7.0.61
+	github.com/mssola/useragent v1.0.0
 	github.com/olivere/elastic v6.2.37+incompatible
 	github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b
+	github.com/oschwald/geoip2-golang v1.9.0
 	github.com/pkg/errors v0.9.1
 	github.com/robfig/cron v1.2.0
 	github.com/rubenv/sql-migrate v1.5.2
@@ -29,7 +31,7 @@ require (
 	github.com/sideshow/apns2 v0.23.0
 	github.com/sourcegraph/syntaxhighlight v0.0.0-20170531221838-bd320f5d308e
 	github.com/spf13/viper v1.16.0
-	github.com/stretchr/testify v1.8.3
+	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.15.0
 	go.uber.org/zap v1.24.0
 	golang.org/x/crypto v0.11.0
@@ -104,6 +106,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
+	github.com/oschwald/maxminddb-golang v1.11.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
@@ -152,5 +155,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+// <<<<<<< HEAD
 
-// replace github.com/TangSengDaoDao/TangSengDaoDaoServerLib => ../TangSengDaoDaoServerLib
+// // replace github.com/TangSengDaoDao/TangSengDaoDaoServerLib => ../TangSengDaoDaoServerLib
+// =======
+// >>>>>>> 722672e (update)
