@@ -1,0 +1,54 @@
+swagger: "2.0"
+info:
+  title: "游客 api"
+  description: "游客 api"
+  version: 1.0.0
+tags: []
+paths:
+  /v1/visitor/login:
+    post:
+      summary: 游客登录
+      x-apifox-folder: ""
+      x-apifox-status: developing
+      deprecated: false
+      description: ""
+      tags: []
+      parameters:
+        - name: body
+          in: body
+          schema:
+            type: object
+            properties:
+              platform:
+                type: string
+                description: 设备
+              referer:
+                type: string
+                description: 来源
+              projectUuid:
+                type: string
+                description: 项目uuid
+              uuid:
+                type: string
+                description: 游客uuid
+            required:
+              - platform
+              - referer
+              - projectUuid
+              - uuid
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: object
+            properties: {}
+      consumes:
+        - application/json
+      produces:
+        - application/json
+host: "api.botgate.cn"
+schemes:
+  - http
+basePath: /
+definitions: {}
+x-components: {}
