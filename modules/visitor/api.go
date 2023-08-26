@@ -404,6 +404,7 @@ func (v *Visitor) registerHandler() error {
 }
 
 // 分配一个客服出来
+// 如果有客服：客服不在线则重新分配，否则不分配
 func (v *Visitor) assignKefu() (*user.Model, error) {
 	//如果已经存在了专属客服
 	if v.kefuModel != nil {
