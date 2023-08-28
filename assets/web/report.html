@@ -126,9 +126,9 @@
             var url = null;
             if (window.createObjectURL != undefined) {
                 url = window.createObjectURL(file);
-            } else if (window.URL != undefined) { // mozilla(firefox)  
+            } else if (window.URL != undefined) { // mozilla(firefox)
                 url = window.URL.createObjectURL(file);
-            } else if (window.webkitURL != undefined) { // webkit or chrome  
+            } else if (window.webkitURL != undefined) { // webkit or chrome
                 url = window.webkitURL.createObjectURL(file);
             }
             return url;
@@ -137,7 +137,7 @@
         let imageDatas = [];
 
         function uploadChange() {
-            var objUrl = getObjectURL(this.files[0]);//获取文件信息 
+            var objUrl = getObjectURL(this.files[0]);//获取文件信息
             if (objUrl) {
                 imageDatas.push(objUrl);
                 renderImageItes();
