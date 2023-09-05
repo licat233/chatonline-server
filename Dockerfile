@@ -15,7 +15,7 @@ WORKDIR /go/release
 
 
 # RUN apt-get update && \
-#       apt-get -y install ca-certificates 
+#       apt-get -y install ca-certificates
 
 ADD . .
 
@@ -32,7 +32,7 @@ FROM alpine as prod
 # Import the user and group files from the builder.
 COPY --from=build /etc/passwd /etc/passwd
 COPY --from=build /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
-RUN \ 
+RUN \
     mkdir -p /usr/share/zoneinfo/Asia && \
     ln -s /etc/localtime /usr/share/zoneinfo/Asia/Shanghai
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
@@ -44,6 +44,6 @@ RUN echo "Asia/Shanghai" > /etc/timezone
 ENV TZ=Asia/Shanghai
 
 # 不加  apk add ca-certificates  apns2推送将请求错误
-# RUN  apk add ca-certificates 
+# RUN  apk add ca-certificates
 
 ENTRYPOINT ["/home/app"]
