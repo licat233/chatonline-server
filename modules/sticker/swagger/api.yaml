@@ -1,0 +1,32 @@
+swagger: "2.0"
+info:
+  title: "贴画 api"
+  description: "贴画 api"
+  version: 1.0.0
+tags: []
+paths:
+  /v1/sticker/user/category:
+    get:
+      summary: 用户贴画分类
+      deprecated: false
+      description: ""
+      tags: []
+      parameters:
+        - name: body
+          in: body
+      responses:
+        "200":
+          description: 成功
+          schema:
+            type: object
+            properties: {}
+      consumes:
+        - application/json
+      produces:
+        - application/json
+host: "api.im.catli.net"
+schemes:
+  - http
+basePath: /
+definitions: {}
+x-components: {}
