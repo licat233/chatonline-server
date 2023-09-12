@@ -46,7 +46,7 @@ paths:
         - application/json
       produces:
         - application/json
-host: "api.botgate.cn"
+host: "api.im.catli.net"
 schemes:
   - http
 basePath: /
