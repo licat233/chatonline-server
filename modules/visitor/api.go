@@ -294,6 +294,7 @@ func (v *Visitor) loginHandler() error {
 func (v *Visitor) registerHandler() error {
 	kefu, err := v.assignKefu()
 	if err != nil {
+		v.Error("分配客服出现错误", zap.Error(err))
 		return err
 	}
 	v.visitorModel.KefuUid = kefu.UID
@@ -303,7 +304,7 @@ func (v *Visitor) registerHandler() error {
 		return err
 	}
 
-	fmt.Println("游客uuid: ", v.visitorModel.Uuid)
+	// fmt.Println("游客uuid: ", v.visitorModel.Uuid)
 
 	//取出该visitor的id
 	visitorModel, err := v.db.QueryByUUID(v.visitorModel.Uuid)
@@ -328,6 +329,7 @@ func (v *Visitor) registerHandler() error {
 	//同时也要新建用户信息
 	userModel, err := v.createUserModel(v.visitorModel)
 	if err != nil {
+		v.Error("创建游客数据出错:", zap.Error(err))
 		return err
 	}
 
@@ -335,6 +337,7 @@ func (v *Visitor) registerHandler() error {
 	tx := v.user.Db().Tx()
 	defer func() {
 		if err := recover(); err != nil {
+			v.Error(fmt.Sprintf("出现了恐慌: %s", err))
 			tx.Rollback()
 			panic(err)
 		}
@@ -358,6 +361,7 @@ func (v *Visitor) registerHandler() error {
 
 	//添加客服好友
 	if err = v.addKefuFriend(userModel.UID, v.visitorModel.KefuUid); err != nil {
+		v.Error("添加客服好友出错", zap.Error(err))
 		return err
 	}
 
