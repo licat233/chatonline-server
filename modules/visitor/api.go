@@ -9,6 +9,7 @@ import (
 
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/base/event"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/group"
+	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/message"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/user"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/pkg/log"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/pkg/util"
@@ -27,12 +28,15 @@ type Visitor struct {
 	// userDB  *user.DB
 	groupDB *group.DB
 
-	user *user.User
+	user    *user.User
+	message *message.Message
 
 	visitorModel *Model
 	userModel    *user.Model
 	groupModel   *group.Model
 	kefuModel    *user.Model
+
+	restKefu bool //是否重新分配客服
 }
 
 func New(ctx *config.Context) *Visitor {
@@ -42,10 +46,12 @@ func New(ctx *config.Context) *Visitor {
 		db:           NewDB(ctx),
 		groupDB:      group.NewDB(ctx),
 		user:         user.New(ctx),
+		message:      message.New(ctx),
 		visitorModel: nil,
 		userModel:    nil,
 		groupModel:   nil,
 		kefuModel:    nil,
+		restKefu:     false,
 	}
 	return v
 }
@@ -53,6 +59,7 @@ func New(ctx *config.Context) *Visitor {
 func (v *Visitor) Route(r *wkhttp.WKHttp) {
 	g := r.Group("/v1/visitor")
 	g.POST("/login", v.VisitorLogin)
+	g.POST("/message/sync", v.syncChannelMessage)
 }
 
 type visitorLoginReq struct {
@@ -60,6 +67,7 @@ type visitorLoginReq struct {
 	Referer     string `json:"referer"`     //来源网站
 	VisitorUuid string `json:"token"`       //游客uuid，可为空，当为空时，以新用户身份登录
 	ProjectUuid string `json:"projectUuid"` //对接的项目uuid
+	RestKefu    bool   `json:"resetKefu"`   //是否重新分配客服
 }
 
 func (r *visitorLoginReq) VisitorLoginCheck() error {
@@ -94,6 +102,7 @@ func (v *Visitor) VisitorLogin(c *wkhttp.Context) {
 		c.ResponseError(err)
 		return
 	}
+	v.restKefu = req.RestKefu
 	// 获取referer
 	referer := req.Referer
 	// 是否为本地开发模式
@@ -407,8 +416,12 @@ func (v *Visitor) registerHandler() error {
 	return nil
 }
 
-// 分配一个客服出来
-// 如果有客服：客服不在线则重新分配，否则不分配
+/*
+*
+分配一个客服出来
+如果有客服：客服不在线则重新分配，否则不分配 - 此方案已废弃，如果切换客服会带来一系列问题，不好处理
+*
+*/
 func (v *Visitor) assignKefu() (*user.Model, error) {
 	//如果已经存在了专属客服
 	if v.kefuModel != nil {
@@ -424,6 +437,13 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 				if onlineModel.Online == 1 {
 					//如果专属客服在线，则返回原客服
 					return v.kefuModel, nil
+				} else {
+					//如果专属客服不在线，则根据 reset 决定是否分配新的客服
+					if !v.restKefu {
+						// 如果不重新分配，则返回原客服
+						return v.kefuModel, nil
+					}
+					//否则继续执行，分配客服
 				}
 			}
 		}
@@ -673,7 +693,7 @@ func (v *Visitor) addKefuFriend(uid string, kefuUid string) error {
 func (v *Visitor) sendVisitorInfo() {
 	time.Sleep(time.Second * 2)
 	var sentContent string
-	sentContent = fmt.Sprintf("有来访游客: %s", v.visitorModel.Name)
+	sentContent = fmt.Sprintf("来访游客: %s", v.visitorModel.Name)
 	sentContent = fmt.Sprintf("%s\nip: %s", sentContent, v.visitorModel.Ip)
 	sentContent = fmt.Sprintf("%s\n来源: %s", sentContent, v.visitorModel.Referer)
 	sentContent = fmt.Sprintf("%s\n地区: %s", sentContent, v.visitorModel.Region)
@@ -686,13 +706,13 @@ func (v *Visitor) sendVisitorInfo() {
 
 	//发送游客的来访信息给客服
 	err := v.ctx.SendMessage(&config.MsgSendReq{
-		FromUID: v.ctx.GetConfig().Account.SystemUID,
+		FromUID: v.visitorModel.UserUid,
 		// FromUID:     v.visitorModel.UserUid,
 		ChannelID:   v.visitorModel.KefuUid,
 		ChannelType: common.ChannelTypePerson.Uint8(),
 		Payload: []byte(util.ToJson(map[string]interface{}{
 			"content": sentContent,
-			"type":    common.Text,
+			"type":    common.Tip,
 		})),
 		Header: config.MsgHeader{
 			RedDot: 0,
