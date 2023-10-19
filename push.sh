@@ -22,4 +22,4 @@ git push origin1 main
 
 # git fetch --all
 # git reset --hard origin/main
-# git pull origin main
+# git pull origin1 main

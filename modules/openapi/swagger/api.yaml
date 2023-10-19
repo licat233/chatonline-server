@@ -1,8 +1,8 @@
 swagger: "2.0"
 info:
-  description: "唐僧叨叨 API"
+  description: "快言 API"
   version: "1.0.0"
-  title: "唐僧叨叨 API"
+  title: "快言 API"
 host: "api.botgate.cn"
 tags:
   - name: "openapi"
@@ -40,7 +40,7 @@ paths:
           schema:
             $ref: "#/definitions/response"
       security:
-        - token: [] 
+        - token: []
   /openapi/access_token:
     get:
       tags:
@@ -62,7 +62,7 @@ paths:
           name: "app_key"
           type: "string"
           description: "授权code"
-          required: true  
+          required: true
       responses:
         200:
           description: "返回"
@@ -97,7 +97,7 @@ paths:
         400:
           description: "错误"
           schema:
-            $ref: "#/definitions/response"          
+            $ref: "#/definitions/response"
 
 securityDefinitions:
   token:
@@ -114,7 +114,7 @@ definitions:
           description: "access_token"
         expire:
           type: integer
-          description: "expire过期时间 单位秒" 
+          description: "expire过期时间 单位秒"
     userinfoResp:
       type: "object"
       properties:
@@ -123,13 +123,13 @@ definitions:
           description: "用户唯一id"
         name:
           type: string
-          description: "用户名称" 
+          description: "用户名称"
         avatar:
           type: string
-          description: "用户头像"    
+          description: "用户头像"
         app_id:
           type: string
-          description: "应用ID"   
+          description: "应用ID"
     authcodeResp:
       type: "object"
       properties:
@@ -143,4 +143,4 @@ definitions:
           type: integer
           format: int
         msg:
-          type: "string"      
+          type: "string"

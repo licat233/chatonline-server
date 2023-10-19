@@ -122,7 +122,7 @@ func (v *Visitor) VisitorLogin(c *wkhttp.Context) {
 	name := "未知地區-網友"
 	if address.Country != "" {
 		name = address.Country
-		if address.City != "" {
+		if address.City != "" && name == address.City {
 			name = fmt.Sprintf("%s-%s", name, address.City)
 		}
 		name = fmt.Sprintf("%s-網友", name)
@@ -630,7 +630,7 @@ func (v *Visitor) createUserModel(m *Model) (*user.Model, error) {
 		Status:            1,
 		Vercode:           fmt.Sprintf("%s@%d", util.GenerUUID(), common.User),
 		QRVercode:         fmt.Sprintf("%s@%d", util.GenerUUID(), common.QRCode),
-		IsUploadAvatar:    1,
+		IsUploadAvatar:    0,
 		Role:              "visitor",
 		Robot:             0,
 		MuteOfApp:         0,

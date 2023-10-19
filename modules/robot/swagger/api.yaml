@@ -1,8 +1,8 @@
 swagger: "2.0"
 info:
-  description: "唐僧叨叨 API"
+  description: "快言 API"
   version: "1.0.0"
-  title: "唐僧叨叨 API"
+  title: "快言 API"
 host: "api.botgate.cn"
 tags:
   - name: "robot"

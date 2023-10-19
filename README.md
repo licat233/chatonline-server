@@ -1,4 +1,4 @@
-## 唐僧叨叨
+## 快言
 
 <p align="center">
 <img align="center" width="150px" src="./docs/logo.svg">
@@ -16,7 +16,7 @@
 <!-- [![Go](https://github.com/TangSengDaoDao/TangSengDaoDaoServer/workflows/Go/badge.svg?branch=main)](https://github.com/TangSengDaoDao/TangSengDaoDaoServer/actions) -->
 ![GitHub go.mod Go version (subdirectory of monorepo)](https://img.shields.io/github/go-mod/go-version/TangSengDaoDao/TangSengDaoDaoServer)
 [![Go Report Card](https://goreportcard.com/badge/github.com/TangSengDaoDao/TangSengDaoDaoServer)](https://goreportcard.com/report/github.com/TangSengDaoDao/TangSengDaoDaoServer)
-![License: Apache 2.0](https://img.shields.io/github/license/WuKongIM/WuKongIM) 
+![License: Apache 2.0](https://img.shields.io/github/license/WuKongIM/WuKongIM)
 <a href="https://join.slack.com/t/wukongim/shared_invite/zt-22o7we8on-2iKNUmgigB9ERdF9XUivmw"><img src="https://img.shields.io/badge/Slack-99%2B-blueviolet?logo=slack&amp;logoColor=white"></a>
 
 <!-- [![Release](https://img.shields.io/github/v/release/TangSengDaoDao/TangSengDaoDaoServer.svg?style=flat-square)](https://github.com/TangSengDaoDao/TangSengDaoDaoServer) -->
@@ -52,7 +52,7 @@
 演示地址
 ------------
 
-| Android扫描体验 | iOS扫描体验(商店版本 apple store 搜“唐僧叨叨”) |
+| Android扫描体验 | iOS扫描体验(商店版本 apple store 搜“快言”) |
 |:---:|:---:|
 |![](docs/download/android.png)|![](docs/download/iOS.png)|
 
@@ -99,15 +99,15 @@
 ------------
 
 
-### 唐僧叨叨（负责业务）
+### 快言（负责业务）
 
 | 项目名 | Github地址 | Gitee地址 | 文档 | 说明 |
 | ---- | ---------- | --------- | ---- | ---- |
-|   TangSengDaoDaoServer   |   [Github](https://github.com/TangSengDaoDao/TangSengDaoDaoServer)         |     [Gitee](https://gitee.com/TangSengDaoDao/TangSengDaoDaoServer)  |  [文档](https://tsdaodao.com/dev/backend/deploy-compose.html)|    唐僧叨叨的业务端，负责一些业务逻辑，比如：好友关系，群组，朋友圈等 （通讯端使用的是 WuKongIM）  |
-|   TangSengDaoDaoAndroid   |   [Github](https://github.com/TangSengDaoDao/TangSengDaoDaoAndroid)         |     [Gitee](https://gitee.com/TangSengDaoDao/TangSengDaoDaoAndroid) | [文档](https://tsdaodao.com/dev/android/intro.html)    |    唐僧叨叨的Android端   |
-|   TangSengDaoDaoiOS   |   [Github](https://github.com/TangSengDaoDao/TangSengDaoDaoiOS)         |     [Gitee](https://gitee.com/TangSengDaoDao/TangSengDaoDaoiOS) | [文档](https://tsdaodao.com/dev/ios/intro.html)       |    唐僧叨叨的iOS端   |
-|   TangSengDaoDaoWeb   |   [Github](https://github.com/TangSengDaoDao/TangSengDaoDaoWeb)         |     [Gitee](https://gitee.com/TangSengDaoDao/TangSengDaoDaoWeb) | [文档](https://tsdaodao.com/dev/web/intro.html)       |    唐僧叨叨的Web/PC端   |
-|   TangSengDaoDaoManager   |   [Github](https://github.com/TangSengDaoDao/TangSengDaoDaoManager)         |     [Gitee](https://gitee.com/TangSengDaoDao/TangSengDaoDaoManager) | 无      |    唐僧叨叨的后台管理系统  |
+|   TangSengDaoDaoServer   |   [Github](https://github.com/TangSengDaoDao/TangSengDaoDaoServer)         |     [Gitee](https://gitee.com/TangSengDaoDao/TangSengDaoDaoServer)  |  [文档](https://tsdaodao.com/dev/backend/deploy-compose.html)|    快言的业务端，负责一些业务逻辑，比如：好友关系，群组，朋友圈等 （通讯端使用的是 WuKongIM）  |
+|   TangSengDaoDaoAndroid   |   [Github](https://github.com/TangSengDaoDao/TangSengDaoDaoAndroid)         |     [Gitee](https://gitee.com/TangSengDaoDao/TangSengDaoDaoAndroid) | [文档](https://tsdaodao.com/dev/android/intro.html)    |    快言的Android端   |
+|   TangSengDaoDaoiOS   |   [Github](https://github.com/TangSengDaoDao/TangSengDaoDaoiOS)         |     [Gitee](https://gitee.com/TangSengDaoDao/TangSengDaoDaoiOS) | [文档](https://tsdaodao.com/dev/ios/intro.html)       |    快言的iOS端   |
+|   TangSengDaoDaoWeb   |   [Github](https://github.com/TangSengDaoDao/TangSengDaoDaoWeb)         |     [Gitee](https://gitee.com/TangSengDaoDao/TangSengDaoDaoWeb) | [文档](https://tsdaodao.com/dev/web/intro.html)       |    快言的Web/PC端   |
+|   TangSengDaoDaoManager   |   [Github](https://github.com/TangSengDaoDao/TangSengDaoDaoManager)         |     [Gitee](https://gitee.com/TangSengDaoDao/TangSengDaoDaoManager) | 无      |    快言的后台管理系统  |
 
 
 ### 悟空IM（负责通讯）
@@ -126,7 +126,7 @@
 技术文档
 ------------
 
-唐僧叨叨：
+快言：
 
 https://tangsengdaodao.com
 
@@ -182,8 +182,8 @@ https://githubim.com
     - [x] 群公告
     - [x] 保存到通讯录
     - [x] 我在本群昵称
-    - [x] 群投诉    
-    - [x] 清空群聊天记录    
+    - [x] 群投诉
+    - [x] 清空群聊天记录
 - [x] 好友
     - [x] 备注
     - [x] 拉黑
@@ -213,12 +213,11 @@ Star
 加入群聊
 ------------
 
-微信：加群请备注“唐僧叨叨”
+微信：加群请备注“快言”
 
 <img src="docs/tsddwx.png" width="200px" height="200px">
 
 许可证
 ------------
 
-唐僧叨叨 使用 Apache 2.0 许可证。有关详情，请参阅 LICENSE 文件。
-
+快言 使用 Apache 2.0 许可证。有关详情，请参阅 LICENSE 文件。

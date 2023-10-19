@@ -1,8 +1,8 @@
 swagger: "2.0"
 info:
-  description: "唐僧叨叨 API"
+  description: "快言 API"
   version: "1.0.0"
-  title: "唐僧叨叨 API"
+  title: "快言 API"
 host: "api.botgate.cn"
 tags:
   - name: "channel"
@@ -76,7 +76,7 @@ paths:
             properties:
               msg_auto_delete:
                 type: integer
-                description: "定时删除时间(单位秒)"  
+                description: "定时删除时间(单位秒)"
       responses:
         200:
           description: "返回"
@@ -87,7 +87,7 @@ paths:
           schema:
             $ref: "#/definitions/response"
       security:
-        - token: []      
+        - token: []
 securityDefinitions:
   token:
     type: "apiKey"

@@ -1,8 +1,8 @@
 swagger: "2.0"
 info:
-  description: "唐僧叨叨 API"
+  description: "快言 API"
   version: "1.0.0"
-  title: "唐僧叨叨 API"
+  title: "快言 API"
 host: "api.botgate.cn"
 tags:
   - name: "message"
@@ -193,11 +193,11 @@ paths:
               list:
                 type: array
                 items:
-                  properties: 
-                    message_id: 
+                  properties:
+                    message_id:
                       type: string
                       description: "消息ID"
-                    message_seq: 
+                    message_seq:
                       type: integer
                       description: "消息序号"
       responses:
@@ -1308,7 +1308,7 @@ paths:
             $ref: "#/definitions/response"
       security:
         - token: []
-  /message/send: 
+  /message/send:
     post:
       tags:
         - "message"
@@ -1337,7 +1337,7 @@ paths:
                 type: integer
                 format: int
                 description: "接受channel类型"
-              payload: 
+              payload:
                 type: object
                 description: "消息正文"
               is_verify:

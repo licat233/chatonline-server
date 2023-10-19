@@ -1,8 +1,8 @@
 swagger: "2.0"
 info:
-  description: "唐僧叨叨 API"
+  description: "快言 API"
   version: "1.0.0"
-  title: "唐僧叨叨 API"
+  title: "快言 API"
 host: "api.botgate.cn"
 tags:
   - name: "report"
@@ -46,14 +46,14 @@ paths:
               list:
                 type: array
                 items:
-                  properties: 
+                  properties:
                     uid:
                       type: string
                       description: "举报者uid"
                     name:
                       type: string
                       description: "举报者名称"
-                    channel_id: 
+                    channel_id:
                       type: string
                       description: "被举报的频道ID"
                     channel_type:
@@ -62,7 +62,7 @@ paths:
                     channel_name:
                       type: string
                       description: "被举报的名称 群名称｜用户名"
-                    category_name: 
+                    category_name:
                       type: string
                       description: "举报所属分类"
                     imgs:
@@ -71,9 +71,9 @@ paths:
                         type: string
                         description: "举报图片"
                     remark:
-                      type: string 
+                      type: string
                       description: "举报说明"
-                    create_at: 
+                    create_at:
                       type: string
                       description: "举报时间"
         400:
@@ -149,7 +149,7 @@ paths:
       responses:
         200:
           description: "举报网页html"
-          
+
         400:
           description: "错误"
           schema:

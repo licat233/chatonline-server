@@ -1,8 +1,8 @@
 swagger: "2.0"
 info:
-  description: "唐僧叨叨 API"
+  description: "快言 API"
   version: "1.0.0"
-  title: "唐僧叨叨 API"
+  title: "快言 API"
 host: "api.botgate.cn"
 tags:
   - name: "common"
@@ -47,8 +47,8 @@ paths:
           schema:
             $ref: '#/definitions/response'
       security:
-        - token: [] 
-    post: 
+        - token: []
+    post:
       tags:
         - "commonManager"
       summary: "修改app配置"
@@ -107,7 +107,7 @@ paths:
             type: array
             items:
               properties:
-                sid: 
+                sid:
                   type: string
                   description: "模块唯一ID"
                 name:
@@ -116,7 +116,7 @@ paths:
                 desc:
                   type: string
                   description: "模块说明"
-                status: 
+                status:
                   type: integer
                   description: "模块状态 1.可选 0.不可选 2.选中不可编辑"
         400:
@@ -125,7 +125,7 @@ paths:
             $ref: "#/definitions/response"
       security:
         - token: []
-    put:  
+    put:
       tags:
         - "commonManager"
       summary: "修改app模块"
@@ -152,7 +152,7 @@ paths:
               desc:
                   type: string
                   description: "模块说明"
-              status: 
+              status:
                 type: integer
                 description: "模块状态 1.可选 0.不可选 2.选中不可编辑"
       responses:
@@ -166,7 +166,7 @@ paths:
             $ref: "#/definitions/response"
       security:
         - token: []
-    post: 
+    post:
       tags:
         - "commonManager"
       summary: "添加app模块"
@@ -193,7 +193,7 @@ paths:
               desc:
                   type: string
                   description: "模块说明"
-              status: 
+              status:
                 type: integer
                 description: "模块状态 1.可选 0.不可选 2.选中不可编辑"
       responses:
@@ -251,12 +251,12 @@ paths:
           name: "os"
           type: string
           description: "平台类型android|ios"
-          required: true 
+          required: true
         - in: "path"
           name: "version"
           type: string
           description: "版本号"
-          required: true 
+          required: true
       responses:
         200:
           description: "返回"
@@ -285,7 +285,7 @@ paths:
           schema:
             $ref: '#/definitions/response'
       security:
-        - token: [] 
+        - token: []
   /common/updater/{os}/{version}:
     get:
       tags:
@@ -302,12 +302,12 @@ paths:
           name: "os"
           type: string
           description: "平台类型android|ios"
-          required: true 
+          required: true
         - in: "path"
           name: "version"
           type: string
           description: "版本号"
-          required: true 
+          required: true
       responses:
         200:
           description: "返回"
@@ -373,9 +373,9 @@ paths:
         400:
           description: '错误'
           schema:
-            $ref: '#/definitions/response' 
+            $ref: '#/definitions/response'
       security:
-        - token: []      
+        - token: []
   /common/appmodule:
     get:
       tags:
@@ -386,7 +386,7 @@ paths:
       consumes:
         - "application/json"
       produces:
-        - "application/json"   
+        - "application/json"
       responses:
         200:
           description: "返回"
@@ -406,14 +406,14 @@ paths:
                status:
                   type: integer
                   description: "模块状态 1.可选 0.不可选 2.默认选中不可编辑"
-                
-                
+
+
         400:
           description: '错误'
           schema:
-            $ref: '#/definitions/response' 
+            $ref: '#/definitions/response'
       security:
-        - token: []       
+        - token: []
   /common/appconfig:
     get:
       tags:
@@ -424,7 +424,7 @@ paths:
       consumes:
         - "application/json"
       produces:
-        - "application/json"   
+        - "application/json"
       parameters:
         - in: "query"
           name: "version"
@@ -454,7 +454,7 @@ paths:
           description: '错误'
           schema:
             $ref: '#/definitions/response'
-               
+
   /common/countries:
     get:
       tags:
@@ -465,7 +465,7 @@ paths:
       consumes:
         - "application/json"
       produces:
-        - "application/json"   
+        - "application/json"
       responses:
         200:
           description: "返回"
@@ -485,7 +485,7 @@ paths:
         400:
           description: '错误'
           schema:
-            $ref: '#/definitions/response' 
+            $ref: '#/definitions/response'
 
 securityDefinitions:
   token:
