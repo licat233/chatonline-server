@@ -10,7 +10,7 @@ current_path=$(
 
 cd $current_path
 
-docker buildx build --platform linux/amd64 --tag licat/chatonline-server:latest .
+docker buildx build --platform linux/amd64 --tag licat/chatonline-server:v1.1 .
 
 docker buildx build --platform linux/arm64 --tag licat/chatonline-server:latest .
 

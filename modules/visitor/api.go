@@ -280,6 +280,20 @@ func (v *Visitor) loginHandler() error {
 		return errors.New("visitor not assigned to customer service")
 	}
 	newKefuUid := kefu.UID
+	//如果不存在群频道
+	if v.visitorModel.GroupUid == "" {
+		g, err := v.group.VisitorGroupCreate(&group.VisitorGroupCreateReq{
+			CreateUid: v.userModel.UID,
+			Name:      v.userModel.Name,
+			Members: []string{
+				kefu.UID,
+			},
+		})
+		if err != nil {
+			return err
+		}
+		v.visitorModel.GroupUid = g.GroupNo
+	}
 	//如果客服换了，则把原来的客服踢出群，然后拉入新客服入群
 	if newKefuUid != kefuUid {
 		v.visitorModel.KefuUid = newKefuUid
