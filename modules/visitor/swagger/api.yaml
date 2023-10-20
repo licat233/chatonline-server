@@ -28,14 +28,14 @@ paths:
               projectUuid:
                 type: string
                 description: 项目uuid
-              uuid:
+              token:
                 type: string
                 description: 游客uuid
             required:
               - platform
               - referer
               - projectUuid
-              - uuid
+              - token
       responses:
         "200":
           description: 成功

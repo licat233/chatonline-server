@@ -15,6 +15,7 @@ type Model struct {
 	UserUid     string    `db:"user_uid"`      // 用户uid
 	KefuUid     string    `db:"kefu_uid"`      // 客服uid
 	ProjectUid  string    `db:"project_uid"`   // 项目uid
+	GroupUid    string    `db:"group_uid"`     // 群频道uid
 	Comment     string    `db:"comment"`       // 备注
 	Status      int64     `db:"status"`        // 状态:0离线，1在线，2拉黑
 	Name        string    `db:"name"`          // 游客名

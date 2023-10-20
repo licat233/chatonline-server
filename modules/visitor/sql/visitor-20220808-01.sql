@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS `visitor` (
   `user_uid`  varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '用户uid，所使用的用户身份',
   `kefu_uid` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '客服uid',
   `project_uid` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '项目uid',
+  `group_uid` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '群频道uid',
   `comment` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '备注',
   `status` tinyint NOT NULL DEFAULT '0' COMMENT '状态:0离线，1在线，2拉黑',
   `name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '游客名',
@@ -23,9 +24,11 @@ CREATE TABLE IF NOT EXISTS `visitor` (
   `create_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
-  KEY `uuid` (`uuid`),
-  KEY `status` (`status`),
-  KEY `user_uid` (`user_uid`),
-  KEY `kefu_uid` (`kefu_uid`),
-  KEY `project_uid` (`project_uid`)
+  KEY `idx_uuid` (`uuid`),
+  KEY `idx_status` (`status`),
+  KEY `idx_user_uid` (`user_uid`),
+  KEY `idx_kefu_uid` (`kefu_uid`),
+  KEY `idx_project_uid` (`project_uid`),
+  KEY `idx_group_uid` (`group_uid`),
+  KEY `idx_ip` (`ip`)
 );

@@ -3,7 +3,7 @@ info:
   description: "快言 API"
   version: "1.0.0"
   title: "快言 API"
-host: "api.botgate.cn"
+host: "api.im.mixbench.net"
 tags:
   - name: "group"
     description: "群组"

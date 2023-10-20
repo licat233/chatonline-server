@@ -21,7 +21,7 @@ func TestAddBanner(t *testing.T) {
 	err := testutil.CleanAllTables(ctx)
 	assert.NoError(t, err)
 	req, _ := http.NewRequest("POST", "/v1/manager/workplace/banner", bytes.NewReader([]byte(util.ToJson(map[string]interface{}{
-		"cover":       "https://api.botgate.cn/v1/users/admin/avatar",
+		"cover":       "https://api.im.mixbench.net/v1/users/admin/avatar",
 		"title":       "横幅title",
 		"description": "横幅介绍",
 		"jump_type":   0,
