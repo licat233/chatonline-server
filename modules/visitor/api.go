@@ -184,7 +184,7 @@ func (v *Visitor) VisitorLogin(c *wkhttp.Context) {
 	visitor := &Model{
 		Id:          0,
 		Uuid:        util.GenerUUID(),
-		UserUid:     util.GenerUUID(),
+		UserUid:     v.GenVisitorUserUID(),
 		KefuUid:     "",
 		ProjectUid:  v.groupModel.GroupNo,
 		GroupUid:    "",
@@ -764,7 +764,7 @@ func (v *Visitor) createUserModel(m *Model) (*user.Model, error) {
 		shortNo = util.Ten2Hex(time.Now().UnixNano())
 	}
 	if len(m.UserUid) == 0 {
-		m.UserUid = util.GenerUUID()
+		m.UserUid = v.GenVisitorUserUID()
 	}
 	return &user.Model{
 		AppID:             "",
@@ -889,4 +889,8 @@ func (v *Visitor) sendOnlineMsgToKefu() {
 	if err != nil {
 		v.Error("发送游客来访消息失败", zap.Error(err))
 	}
+}
+
+func (v *Visitor) GenVisitorUserUID() string {
+	return v.ctx.GetConfig().VisitorUIDPrefix + util.GenerUUID()
 }

@@ -187,7 +187,6 @@ func (g *Group) VisitorGroupCreate(req *VisitorGroupCreateReq) (*Model, error) {
 		g.Error("创建IM频道失败！", zap.Error(err))
 		return nil, errors.New("创建IM频道失败！")
 	}
-
 	if err := tx.Commit(); err != nil {
 		tx.RollbackUnlessCommitted()
 		g.Error("提交事务失败！", zap.Error(err))
@@ -277,10 +276,10 @@ func (g *Group) VisitorMemberAdd(req *VisitorMemberAddReq) error {
 			return errors.New("修改群为超级群失败！")
 		}
 		// 发送群升级通知
-		err = g.ctx.SendGroupUpgrade(groupNo)
-		if err != nil {
-			g.Warn("发送群升级通知失败！", zap.Error(err))
-		}
+		// err = g.ctx.SendGroupUpgrade(groupNo)
+		// if err != nil {
+		// 	g.Warn("发送群升级通知失败！", zap.Error(err))
+		// }
 	}
 	return nil
 }
