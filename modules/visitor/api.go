@@ -835,7 +835,6 @@ func (v *Visitor) createUserModel(m *Model) (*user.Model, error) {
 
 // 发送游客拜访信息到群频道
 func (v *Visitor) sendVisitorInfo() {
-	time.Sleep(time.Second * 2)
 	var sentContent string
 	sentContent = fmt.Sprintf("来访游客: %s", v.visitorModel.Name)
 	sentContent = fmt.Sprintf("%s\nip: %s", sentContent, v.visitorModel.Ip)
@@ -874,8 +873,7 @@ func (v *Visitor) sendOnlineMsgToKefu() {
 	}
 	//发送游客的上线信息给客服
 	err := v.ctx.SendMessage(&config.MsgSendReq{
-		FromUID: v.visitorModel.UserUid,
-		// FromUID:     v.visitorModel.UserUid,
+		FromUID:     v.visitorModel.UserUid,
 		ChannelID:   v.visitorModel.GroupUid,
 		ChannelType: common.ChannelTypeGroup.Uint8(),
 		Payload: []byte(util.ToJson(map[string]interface{}{

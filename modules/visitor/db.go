@@ -95,6 +95,7 @@ func (d *DB) Insert(m *Model) error {
 func (d *DB) Update(model *Model) error {
 	_, err := d.session.Update("visitor").SetMap(map[string]interface{}{
 		"kefu_uid":      model.KefuUid,
+		"group_uid":     model.GroupUid,
 		"name":          model.Name,
 		"comment":       model.Comment,
 		"status":        model.Status,
