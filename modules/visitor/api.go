@@ -293,6 +293,53 @@ func (v *Visitor) loginHandler() error {
 			return err
 		}
 		v.visitorModel.GroupUid = g.GroupNo
+	} else {
+		//检查自己的专属客服是否已经被更换了
+		//先查找群成员
+		members, err := v.groupDB.QueryMembersWithGroupNo(v.visitorModel.GroupUid)
+		if err != nil {
+			v.Error("查询群成员信息错误", zap.Error(err))
+			return errors.New("查询群成员信息错误")
+		}
+		//如果没有成员
+		n := len(members)
+		if n == 0 {
+			//则添加进去
+			err = v.group.VisitorMemberAdd(&group.VisitorMemberAddReq{
+				OperatorUid:  v.userModel.UID,
+				OperatorName: v.userModel.Name,
+				Members: []string{
+					newKefuUid,
+				},
+				GroupNo: v.visitorModel.GroupUid,
+			})
+			if err != nil {
+				return err
+			}
+			//更改kefuUID，防止接下来再次进行群成员操作
+			kefuUid = newKefuUid
+		}
+		hasOldKefu := false
+		for _, m := range members {
+			//检查是否存在当前的客服
+			if m.UID == kefuUid {
+				//表示原客服还在，还没有更换
+				hasOldKefu = true
+				break
+			}
+		}
+		//如果原客服已经不在了，表示已经被换了客服
+		if !hasOldKefu {
+			//找出群里的另一个客服
+			for _, m := range members {
+				//前提不是自己
+				if m.UID != v.visitorModel.UserUid {
+					//说明该客服已经被主动更换了，则使用主动更换的kefuUid
+					newKefuUid = m.UID
+					break
+				}
+			}
+		}
 	}
 	//如果客服换了，则把原来的客服踢出群，然后拉入新客服入群
 	if newKefuUid != kefuUid {
