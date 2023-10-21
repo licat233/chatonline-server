@@ -1,0 +1,11 @@
+FROM alpine:latest
+
+ENV TZ=Asia/Shanghai
+
+WORKDIR /home
+COPY ./app /home
+COPY ./assets /home/assets
+COPY ./configs /home/configs
+
+ENV TZ=Asia/Shanghai
+ENTRYPOINT ["/home/app"]

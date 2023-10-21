@@ -5,8 +5,10 @@ import (
 	"compress/flate"
 	"compress/gzip"
 	"compress/zlib"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -23,84 +25,103 @@ func UnmarshalReqData(c *wkhttp.Context, req any) (isEncrypt bool, err error) {
 	if len(body) == 0 {
 		return false, errors.New("request body is nil")
 	}
-	jsonStr := string(body)
-	err = json.Unmarshal([]byte(jsonStr), req)
-	if err != nil {
-		//可能不是json
-		jsonStr = DecryptJSONData(body)
-		err = json.Unmarshal([]byte(jsonStr), req)
+	if IsJSON(body) {
+		err = json.Unmarshal(body, req)
 		if err != nil {
-			return true, errors.New("the requested data format is incorrect")
+			return false, errors.New("the requested data format is incorrect")
 		}
+		return false, nil
 	}
-
+	// 开始解码
+	decodedJSONData := DecryptJsonBase64Data(body)
+	if len(decodedJSONData) == 0 {
+		//不是json数据
+		return false, errors.New("the requested data format is incorrect")
+	}
+	err = json.Unmarshal(decodedJSONData, req)
+	if err != nil {
+		//无法映射到req中
+		return false, errors.New("the requested data format is incorrect")
+	}
 	return true, nil
 }
 
-// 加密数据
+// 加密数据，返回base64编码的加密数据
 func EncryptData(data interface{}) string {
 	input, _ := json.Marshal(data)
-	return EncryptString(string(input), "")
+	secretData := EncryptString(string(input), "")
+	encodedData := base64.StdEncoding.EncodeToString([]byte(secretData))
+	return encodedData
 }
 
-// 解密json数据
-func DecryptJSONData(data []byte) string {
-	return DecryptJSONString(string(data), "")
+// 解密base64编码的数据
+func DecryptBase64Data(data []byte) []byte {
+	decodedData, err := base64.StdEncoding.DecodeString(string(data))
+	if err != nil {
+		//不是base64编码
+		return nil
+	}
+	date := time.Now()
+	secretKey := GenSecretKey(&date, false)
+	DecryptString(string(decodedData), secretKey)
+	return DecryptString(string(decodedData), secretKey)
+}
+
+// 解密base64编码的json数据
+func DecryptJsonBase64Data(data []byte) []byte {
+	decodedData, err := base64.StdEncoding.DecodeString(string(data))
+	if err != nil {
+		//不是base64编码
+		return nil
+	}
+	return DecryptJSONString(decodedData, "")
+}
+
+// 解密json字符串, 解析失败时，会返回空字符
+func DecryptJSONString(input []byte, secretKey string) []byte {
+	date := time.Now()
+	if secretKey == "" {
+		secretKey = GenSecretKey(&date, false)
+	}
+	decrypted := DecryptString(string(input), secretKey)
+	if !IsJSON(decrypted) {
+		decrypted = DecryptString(string(input), GenSecretKey(&date, true))
+		if !IsJSON(decrypted) {
+			return nil
+		}
+	}
+	return []byte(decrypted)
 }
 
 // 加密字符串
-func EncryptString(input string, secretKey string) string {
+func EncryptString(input string, secretKey string) []byte {
 	if secretKey == "" {
-		secretKey = GenSecretKey(nil, false, false)
+		secretKey = GenSecretKey(nil, false)
 	}
 	n := len(secretKey)
-	encrypted := ""
+	var encrypted []byte
 	for i := 0; i < len(input); i++ {
 		charCode := int(input[i])
 		iv := int(secretKey[i%n])
 		encryptedCharCode := charCode + iv
-		encrypted += string(rune(encryptedCharCode))
+		encrypted = append(encrypted, byte(rune(encryptedCharCode)))
 	}
 	return encrypted
 }
 
 // 解密字符串
-func DecryptString(input string, secretKey string) string {
+func DecryptString(input string, secretKey string) []byte {
 	if secretKey == "" {
 		date := time.Now()
-		secretKey = GenSecretKey(&date, false, false)
+		secretKey = GenSecretKey(&date, false)
 	}
 	n := len(secretKey)
-	decrypted := ""
+	var decrypted []byte
 	for i := 0; i < len(input); i++ {
 		charCode := int(input[i])
 		iv := int(secretKey[i%n])
 		decryptedCharCode := charCode - iv
-		decrypted += string(rune(decryptedCharCode))
-	}
-	return decrypted
-}
-
-// 解密json字符串
-func DecryptJSONString(input string, secretKey string) string {
-	date := time.Now()
-	if secretKey == "" {
-		secretKey = GenSecretKey(&date, false, false)
-	}
-	n := len(secretKey)
-	decrypted := ""
-	for i := 0; i < len(input); i++ {
-		charCode := int(input[i])
-		iv := int(secretKey[i%n])
-		decryptedCharCode := charCode - iv
-		decrypted += string(rune(decryptedCharCode))
-	}
-
-	if !IsJSON(decrypted) {
-		decrypted = DecryptString(input, GenSecretKey(&date, false, true))
-		if !IsJSON(decrypted) {
-			return ""
-		}
+		decrypted = append(decrypted, byte(rune(decryptedCharCode)))
 	}
 	return decrypted
 }
@@ -113,7 +134,7 @@ func GetPreviousMinuteDate(date *time.Time) time.Time {
 	return date.Add(time.Minute * -1)
 }
 
-func GenSecretKey(date *time.Time, reverse bool, previousMinute bool) string {
+func GenSecretKey(date *time.Time, previousMinute bool) string {
 	if date == nil {
 		now := time.Now()
 		date = &now
@@ -121,11 +142,9 @@ func GenSecretKey(date *time.Time, reverse bool, previousMinute bool) string {
 	if previousMinute {
 		*date = GetPreviousMinuteDate(date)
 	}
-	template := "2006-01-02-15-04"
-	if reverse {
-		template = "04-15-02-01-2006"
-	}
-	return date.Format(template)
+	timestampInSeconds := date.Unix()
+	timestampInMinutes := timestampInSeconds - (timestampInSeconds % 60)
+	return fmt.Sprint(timestampInMinutes)
 }
 
 // 解析被压缩的request数据，req必须为指针
@@ -267,7 +286,7 @@ func CompressZlibData(data []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func IsJSON(str string) bool {
+func IsJSON(data []byte) bool {
 	var js json.RawMessage
-	return json.Unmarshal([]byte(str), &js) == nil
+	return json.Unmarshal(data, &js) == nil
 }
