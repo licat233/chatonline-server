@@ -62,8 +62,10 @@ func New(ctx *config.Context) *Visitor {
 
 func (v *Visitor) Route(r *wkhttp.WKHttp) {
 	g := r.Group("/v1/visitor")
-	g.POST("/login", v.VisitorLogin)
-	g.POST("/message/sync", v.syncChannelMessage)
+	{
+		g.POST("/login", v.VisitorLogin)
+		g.POST("/message/sync", v.syncChannelMessage)
+	}
 }
 
 type visitorLoginReq struct {
@@ -87,6 +89,10 @@ func (r *visitorLoginReq) VisitorLoginCheck() error {
 	return nil
 }
 
+type Resp struct {
+	Data any `json:"data"`
+}
+
 type LoginInfo struct {
 	// Uuid       string `json:"uuid"`
 	Token      string `json:"token"`       //登录凭证，也就是visitor_uid
@@ -97,12 +103,13 @@ type LoginInfo struct {
 }
 
 func (v *Visitor) VisitorLogin(c *wkhttp.Context) {
-	var err error
 	var req visitorLoginReq
-	if err := c.BindJSON(&req); err != nil {
-		c.ResponseError(errors.New("the requested data format is incorrect"))
+	isEncrypt, err := UnmarshalReqData(c, &req)
+	if err != nil {
+		c.ResponseError(err)
 		return
 	}
+
 	if err := req.VisitorLoginCheck(); err != nil {
 		c.ResponseError(err)
 		return
@@ -248,7 +255,12 @@ func (v *Visitor) VisitorLogin(c *wkhttp.Context) {
 		ProjectUid: v.visitorModel.ProjectUid,
 		GroupUid:   v.visitorModel.GroupUid,
 	}
-	c.Response(loginInfo)
+	if isEncrypt {
+		encryptData := EncryptData(loginInfo)
+		c.Writer.WriteString(encryptData)
+	} else {
+		c.Response(loginInfo)
+	}
 }
 
 // 游客登录
@@ -838,6 +850,7 @@ func (v *Visitor) sendVisitorInfo() {
 	var sentContent string
 	sentContent = fmt.Sprintf("来访游客: %s", v.visitorModel.Name)
 	sentContent = fmt.Sprintf("%s\nip: %s", sentContent, v.visitorModel.Ip)
+	sentContent = fmt.Sprintf("%s\n时间: %s", sentContent, time.Now().Local())
 	sentContent = fmt.Sprintf("%s\n来源: %s", sentContent, v.visitorModel.Referer)
 	sentContent = fmt.Sprintf("%s\n地区: %s", sentContent, v.visitorModel.Region)
 	sentContent = fmt.Sprintf("%s\n城市: %s", sentContent, v.visitorModel.City)

@@ -11,12 +11,17 @@ import (
 // 同步频道消息
 func (v *Visitor) syncChannelMessage(c *wkhttp.Context) {
 	var req config.SyncChannelMessageReq
-	if err := c.BindJSON(&req); err != nil {
-		v.Error("数据格式有误！", zap.Error(err))
-		c.ResponseError(errors.New("数据格式有误！"))
+	_, err := UnmarshalReqData(c, &req)
+	if err != nil {
+		c.ResponseError(err)
 		return
 	}
+
 	visitorUid := req.LoginUID
+	if visitorUid == "" {
+		c.ResponseError(errors.New("login_uid is empty！"))
+		return
+	}
 	vistor, err := v.db.QueryByUUID(visitorUid)
 	if err != nil {
 		v.Error("查询游客信息错误", zap.Error(err))
