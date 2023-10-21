@@ -143,11 +143,11 @@ func UnmarshalReqZipData(c *wkhttp.Context, req any) (compressType string, err e
 	compressType = c.Request.Header.Get("Content-Encoding")
 	switch compressType {
 	case "deflate":
-		decompressedData, err = decompressedFlateData(compressedData)
+		decompressedData, err = DecompressedFlateData(compressedData)
 	case "gzip":
-		decompressedData, err = decompressGzipData(compressedData)
+		decompressedData, err = DecompressGzipData(compressedData)
 	case "zlib":
-		decompressedData, err = decompressZlibData(compressedData)
+		decompressedData, err = DecompressZlibData(compressedData)
 	default:
 		if err = c.BindJSON(req); err != nil {
 			c.ResponseError(errors.New("the requested data format is incorrect"))
@@ -166,7 +166,7 @@ func UnmarshalReqZipData(c *wkhttp.Context, req any) (compressType string, err e
 	return
 }
 
-func decompressedFlateData(compressedData []byte) ([]byte, error) {
+func DecompressedFlateData(compressedData []byte) ([]byte, error) {
 	// 创建deflate解压缩器
 	reader := flate.NewReader(bytes.NewReader(compressedData))
 	defer reader.Close()
@@ -174,7 +174,7 @@ func decompressedFlateData(compressedData []byte) ([]byte, error) {
 	return io.ReadAll(reader)
 }
 
-func compressFlateData(data any) ([]byte, error) {
+func CompressFlateData(data any) ([]byte, error) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
@@ -200,7 +200,7 @@ func compressFlateData(data any) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func decompressGzipData(data []byte) ([]byte, error) {
+func DecompressGzipData(data []byte) ([]byte, error) {
 	reader, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
@@ -210,7 +210,7 @@ func decompressGzipData(data []byte) ([]byte, error) {
 	return io.ReadAll(reader)
 }
 
-func compressGzipData(data []byte) ([]byte, error) {
+func CompressGzipData(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	writer := gzip.NewWriter(&buf)
 	defer writer.Close()
@@ -233,18 +233,18 @@ func compressGzipData(data []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func decompressZlibData(data []byte) ([]byte, error) {
+func DecompressZlibData(data []byte) ([]byte, error) {
 	reader := bytes.NewReader(data)
 	zlibReader, err := zlib.NewReader(reader)
-	defer zlibReader.Close()
 	if err != nil {
 		return nil, err
 	}
+	defer zlibReader.Close()
 
 	return io.ReadAll(zlibReader)
 }
 
-func compressZlibData(data []byte) ([]byte, error) {
+func CompressZlibData(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	zlibWriter := zlib.NewWriter(&buf)
 	defer zlibWriter.Close()
