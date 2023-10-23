@@ -10,8 +10,8 @@ current_path=$(
 
 cd $current_path
 
-git add .
-git commit -m "修复事务处理问题" --no-verify
+git add --all
+git commit -m "更新原origin的代码" --no-verify
 git push origin1 main
 
 # git checkout --orphan latest_branch
