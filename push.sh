@@ -11,7 +11,7 @@ current_path=$(
 cd $current_path
 
 git add .
-git commit -m "update" --no-verify
+git commit -m "修复事务处理问题" --no-verify
 git push origin1 main
 
 # git checkout --orphan latest_branch

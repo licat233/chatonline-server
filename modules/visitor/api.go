@@ -456,49 +456,58 @@ func (v *Visitor) registerHandler(c *wkhttp.Context) error {
 			panic(err)
 		}
 	}()
-	if err = v.user.Db().InsertTx(userModel, tx); err != nil {
-		v.Error("注册visitor用户失败", zap.Error(err))
-		return err
+	var txEvent = func() error {
+		if err = v.user.Db().InsertTx(userModel, tx); err != nil {
+			v.Error("注册visitor用户失败", zap.Error(err))
+			return err
+		}
+
+		// //构建设备信息
+		// device := user.NewVisitorDeviceModel()
+		// device.UID = userModel.UID
+		// device.DeviceModel = v.visitorModel.Browser
+		// device.DeviceID = v.visitorModel.Uuid
+		// //注册设备信息
+		// err = v.user.DeviceDB().InsertOrUpdateDeviceTx(device, tx)
+		// if err != nil {
+		// 	v.Error("添加用户设备信息失败", zap.Error(err))
+		// 	return err
+		// }
+
+		// 添加客服好友, 游客身份，没必要添加客服好友
+		// if err = v.addKefuFriend(userModel.UID, v.visitorModel.KefuUid); err != nil {
+		// 	v.Error("添加客服好友出错", zap.Error(err))
+		// 	return err
+		// }
+
+		//发送用户注册事件
+		eventID, err := v.ctx.EventBegin(&wkevent.Data{
+			Event: event.EventUserRegister,
+			Type:  wkevent.Message,
+			Data: map[string]interface{}{
+				"uid": userModel.UID,
+			},
+		}, tx)
+		if err != nil {
+			v.Error("开启事件失败！", zap.Error(err))
+			return err
+		}
+
+		//回调事件
+		if err = tx.Commit(); err != nil {
+			// tx.Rollback()
+			// v.Error("数据库事务提交失败", zap.Error(err))
+			return err
+		}
+		v.ctx.EventCommit(eventID)
+		return nil
 	}
 
-	// //构建设备信息
-	// device := user.NewVisitorDeviceModel()
-	// device.UID = userModel.UID
-	// device.DeviceModel = v.visitorModel.Browser
-	// device.DeviceID = v.visitorModel.Uuid
-	// //注册设备信息
-	// err = v.user.DeviceDB().InsertOrUpdateDeviceTx(device, tx)
-	// if err != nil {
-	// 	v.Error("添加用户设备信息失败", zap.Error(err))
-	// 	return err
-	// }
-
-	// 添加客服好友, 游客身份，没必要添加客服好友
-	// if err = v.addKefuFriend(userModel.UID, v.visitorModel.KefuUid); err != nil {
-	// 	v.Error("添加客服好友出错", zap.Error(err))
-	// 	return err
-	// }
-
-	//发送用户注册事件
-	eventID, err := v.ctx.EventBegin(&wkevent.Data{
-		Event: event.EventUserRegister,
-		Type:  wkevent.Message,
-		Data: map[string]interface{}{
-			"uid": userModel.UID,
-		},
-	}, tx)
-	if err != nil {
-		v.Error("开启事件失败！", zap.Error(err))
-		return err
-	}
-
-	//回调事件
-	if err = tx.Commit(); err != nil {
+	if err := txEvent(); err != nil {
 		tx.Rollback()
 		v.Error("数据库事务提交失败", zap.Error(err))
-		return err
+		c.ResponseError(errors.New("数据库事务提交失败"))
 	}
-	v.ctx.EventCommit(eventID)
 
 	_, err = v.ctx.UpdateIMToken(config.UpdateIMTokenReq{
 		UID:         userModel.UID,
