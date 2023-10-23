@@ -176,6 +176,8 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 			return
 		}
 		if v.visitorModel != nil {
+			//检查其绑定的project是否正确
+			// if v.visitorModel.ProjectUid !=
 			// 同时还要检查其绑定的user是否存在
 			v.userModel, err = v.user.Db().QueryByUID(v.visitorModel.UserUid)
 			if err != nil {
