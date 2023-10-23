@@ -11,7 +11,7 @@ current_path=$(
 cd $current_path
 
 git add --all
-git commit -m "更新原origin的代码" --no-verify
+git commit -m "完善LoginHandler逻辑" --no-verify
 git push origin1 main
 
 # git checkout --orphan latest_branch

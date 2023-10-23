@@ -63,7 +63,7 @@ func New(ctx *config.Context) *Visitor {
 func (v *Visitor) Route(r *wkhttp.WKHttp) {
 	g := r.Group("/v1/visitor")
 	{
-		g.POST("/login", v.VisitorLogin)
+		g.POST("/login", v.Login)
 		g.POST("/message/sync", v.syncChannelMessage)
 	}
 }
@@ -102,7 +102,7 @@ type LoginInfo struct {
 	GroupUid   string `json:"channel_uid"` //visitor所在的group_uid
 }
 
-func (v *Visitor) VisitorLogin(c *wkhttp.Context) {
+func (v *Visitor) Login(c *wkhttp.Context) {
 	var req visitorLoginReq
 	isEncrypt, err := UnmarshalReqData(c, &req)
 	if err != nil {
@@ -212,9 +212,6 @@ func (v *Visitor) VisitorLogin(c *wkhttp.Context) {
 		UpdateAt:    time.Time{},
 	}
 
-	// fmt.Println("新用户:", isNewVisitor)
-	// fmt.Println("新用户Uuid:", visitorUid)
-
 	if isNewVisitor {
 		//如果是新用户，则开始创建用户信息
 		v.visitorModel = visitor
@@ -276,13 +273,15 @@ func (v *Visitor) loginHandler() error {
 		return errors.New("the user has been disabled")
 	}
 	var err error
-	kefuUid := v.visitorModel.KefuUid
 	///查询客服信息
-	v.kefuModel, err = v.user.Db().QueryByUID(kefuUid)
-	if err != nil {
-		v.Error("查询用户信息错误", zap.Error(err))
-		return err
+	if v.visitorModel.KefuUid != "" || v.kefuModel.Status == 0 {
+		v.kefuModel, err = v.user.Db().QueryByUID(v.visitorModel.KefuUid)
+		if err != nil {
+			v.Error("查询用户信息错误", zap.Error(err))
+			return err
+		}
 	}
+	//分配一个客服出来
 	kefu, err := v.assignKefu()
 	if err != nil {
 		return err
@@ -292,19 +291,20 @@ func (v *Visitor) loginHandler() error {
 		return errors.New("visitor not assigned to customer service")
 	}
 	newKefuUid := kefu.UID
-	//如果不存在群频道
+	//如果不存在群频道，则创建群频道
 	if v.visitorModel.GroupUid == "" {
 		g, err := v.group.VisitorGroupCreate(&group.VisitorGroupCreateReq{
 			CreateUid: v.userModel.UID,
 			Name:      v.userModel.Name,
 			Members: []string{
-				kefu.UID,
+				newKefuUid,
 			},
 		})
 		if err != nil {
 			return err
 		}
 		v.visitorModel.GroupUid = g.GroupNo
+		v.visitorModel.KefuUid = newKefuUid
 	} else {
 		//检查自己的专属客服是否已经被更换了
 		//先查找群成员
@@ -313,10 +313,78 @@ func (v *Visitor) loginHandler() error {
 			v.Error("查询群成员信息错误", zap.Error(err))
 			return errors.New("查询群成员信息错误")
 		}
-		//如果没有成员
-		n := len(members)
-		if n == 0 {
-			//则添加进去
+		// 查看群里有没有可以使用的客服
+		var gmembers []*group.MemberModel
+		for _, member := range members {
+			if member.Role != 0 {
+				continue
+			}
+			if member.UID == v.visitorModel.UserUid {
+				continue
+			}
+			if member.Robot != 0 {
+				continue
+			}
+			if member.Status != 1 {
+				continue
+			}
+			if member.IsDeleted != 0 {
+				continue
+			}
+			if member.UID == "fileHelper" {
+				continue
+			}
+			if len(member.UID) < 16 {
+				continue
+			}
+			gmembers = append(gmembers, member)
+		}
+		// 检查是否存在自己的专属客服
+		hasOldKefu := false
+		otherKefus := []string{}
+		//检查原来的客服是否还在群里
+		for _, m := range gmembers {
+			if m.UID == v.visitorModel.KefuUid {
+				//表示原客服还在
+				hasOldKefu = true
+			} else {
+				otherKefus = append(otherKefus, m.UID)
+			}
+		}
+
+		//如果不在
+		if !hasOldKefu {
+			//找出群里的另一个客服
+			var otherKefuUid string
+			for _, m := range gmembers {
+				//前提不是自己
+				if m.UID != v.visitorModel.UserUid {
+					//说明该客服已经被主动更换了，则使用主动更换的kefuUid
+					otherKefuUid = m.UID
+					break
+				}
+			}
+			if otherKefuUid != "" {
+				//如果存在另一個客服，檢查是否在线
+				online, err := v.user.OnlineService().QueryOnlineWithUID(otherKefuUid)
+				if err != nil {
+					v.Error("查询在线用户错误", zap.Error(err))
+					return err
+				}
+				//如果在线，则更换
+				if online.Online == 1 {
+					newKefuUid = otherKefuUid
+				}
+				//否则使用系统分配的客服
+			}
+		}
+
+		//如果客服换了，则把原来的客服踢出群，然后拉入新客服入群
+		if newKefuUid != v.visitorModel.KefuUid {
+			oldKefuUid := v.visitorModel.KefuUid
+			otherKefus = append(otherKefus, oldKefuUid)
+			v.visitorModel.KefuUid = newKefuUid
+			//先添加新客服入群，如果添加成功，才能移除旧客服
 			err = v.group.VisitorMemberAdd(&group.VisitorMemberAddReq{
 				OperatorUid:  v.userModel.UID,
 				OperatorName: v.userModel.Name,
@@ -328,58 +396,20 @@ func (v *Visitor) loginHandler() error {
 			if err != nil {
 				return err
 			}
-			//更改kefuUID，防止接下来再次进行群成员操作
-			kefuUid = newKefuUid
-		}
-		hasOldKefu := false
-		for _, m := range members {
-			//检查是否存在当前的客服
-			if m.UID == kefuUid {
-				//表示原客服还在，还没有更换
-				hasOldKefu = true
-				break
-			}
-		}
-		//如果原客服已经不在了，表示已经被换了客服
-		if !hasOldKefu {
-			//找出群里的另一个客服
-			for _, m := range members {
-				//前提不是自己
-				if m.UID != v.visitorModel.UserUid {
-					//说明该客服已经被主动更换了，则使用主动更换的kefuUid
-					newKefuUid = m.UID
-					break
-				}
-			}
-		}
-	}
-	//如果客服换了，则把原来的客服踢出群，然后拉入新客服入群
-	if newKefuUid != kefuUid {
-		v.visitorModel.KefuUid = newKefuUid
-		//先添加新客服入群，如果添加成功，才能移除旧客服
-		err = v.group.VisitorMemberAdd(&group.VisitorMemberAddReq{
-			OperatorUid:  v.userModel.UID,
-			OperatorName: v.userModel.Name,
-			Members: []string{
-				newKefuUid,
-			},
-			GroupNo: v.visitorModel.GroupUid,
-		})
-		if err != nil {
-			return err
 		}
 		//移除旧客服
-		err = v.group.VisitorMemberRemove(&group.VisitorMemberRemoveReq{
-			OperatorUid:  v.userModel.UID,
-			OperatorName: v.userModel.Name,
-			Members: []string{
-				kefuUid,
-			},
-			GroupNo: v.visitorModel.GroupUid,
-		})
-		if err != nil {
-			return err
+		if len(otherKefus) > 0 {
+			err = v.group.VisitorMemberRemove(&group.VisitorMemberRemoveReq{
+				OperatorUid:  v.userModel.UID,
+				OperatorName: v.userModel.Name,
+				Members:      otherKefus,
+				GroupNo:      v.visitorModel.GroupUid,
+			})
+			if err != nil {
+				return err
+			}
 		}
+
 	}
 	//更新数据
 	if err = v.db.Update(v.visitorModel); err != nil {

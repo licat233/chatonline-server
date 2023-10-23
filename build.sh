@@ -29,13 +29,13 @@ echo "编译完成"
 # docker pull alpine:latest
 
 echo "已确保alpine镜像为最新"
-echo "开始编译docker镜像: licat/chatonline-server:beta"
+echo "开始编译docker镜像: licat/chatonline-server:v1"
 
-docker buildx build --platform linux/amd64 --tag licat/chatonline-server:beta . -f Dockerfile.lite
+docker buildx build --platform linux/amd64 --tag licat/chatonline-server:v1 . -f Dockerfile.lite
 
 echo "docker镜像编译完成"
 echo "开始推送docker镜像到远程仓库"
 
-docker push licat/chatonline-server:beta
+docker push licat/chatonline-server:v1
 
 echo "推送完成"
