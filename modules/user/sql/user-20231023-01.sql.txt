@@ -1,5 +1,0 @@
-
--- +migrate Up
-
--- 创建游客账号
-INSERT INTO `user` (uid,name,short_no,phone,zone,search_by_phone,search_by_short,new_msg_notice,voice_on,shock_on,msg_show_detail,status,is_upload_avatar,category,robot) VALUES ('visitor','访客账号',40000,'13000000003','0086',0,0,0,0,0,0,1,0,'visitor',0);

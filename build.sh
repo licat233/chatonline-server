@@ -26,6 +26,8 @@ CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags="-w -extldflags '-static
 
 echo "编译完成"
 
+# exit 0
+
 # docker pull alpine:latest
 
 echo "已确保alpine镜像为最新"

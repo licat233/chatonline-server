@@ -63,6 +63,7 @@ func New(ctx *config.Context) *Visitor {
 		visitorUserUid:  "visitor",
 		visitorUserName: "系统",
 	}
+
 	return v
 }
 
@@ -122,7 +123,8 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	}
 
 	if err := v.initVisitorUser(); err != nil {
-		c.ResponseErrorWithStatus(err, 500)
+		v.Error("初始化visitor信息失败", zap.Error(err))
+		c.ResponseError(err)
 		return
 	}
 
