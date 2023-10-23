@@ -1,11 +1,11 @@
 package group
 
 // QueryGroupByNo 查询某个群,通过groupNo
-// func (d *DB) QueryGroupWithGroupNo(groupNo string) (*Model, error) {
-// 	var model *Model
-// 	_, err := d.session.Select("*").From("group").Where("`group_no`=?", groupNo).Load(&model)
-// 	return model, err
-// }
+func (d *DB) QueryGroupWithGroupNo(groupNo string) (*Model, error) {
+	var model *Model
+	_, err := d.session.Select("*").From("group").Where("`group_no`=?", groupNo).Load(&model)
+	return model, err
+}
 
 // 查询指定群内的所有成员
 func (d *DB) QueryMembersWithGroupNo(groupNo string) ([]*MemberModel, error) {
