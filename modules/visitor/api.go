@@ -301,6 +301,8 @@ func (v *Visitor) loginHandler() error {
 			Members: []string{
 				newKefuUid,
 			},
+			Notice:  v.genVisitorInfo(),
+			GroupNo: v.visitorModel.Uuid,
 		})
 		if err != nil {
 			return err
@@ -567,6 +569,8 @@ func (v *Visitor) registerHandler(c *wkhttp.Context) error {
 		Members: []string{
 			v.visitorModel.KefuUid,
 		},
+		Notice:  v.genVisitorInfo(),
+		GroupNo: v.visitorModel.Uuid,
 	})
 	if err != nil {
 		v.Error("创建游客群频道失败！", zap.Error(err))
@@ -859,35 +863,7 @@ func (v *Visitor) createUserModel(m *Model) (*user.Model, error) {
 	}, nil
 }
 
-// 处理注册游客和客服互为好友
-// func (v *Visitor) addKefuFriend(uid string, kefuUid string) error {
-// 	if uid == "" {
-// 		v.Error("用户ID不能为空")
-// 		return errors.New("用户ID不能为空")
-// 	}
-// 	isFriend, err := v.user.FriendDB().IsFriend(uid, kefuUid)
-// 	if err != nil {
-// 		v.Error("查询用户关系失败", zap.Error(err))
-// 		return err
-// 	}
-// 	if isFriend {
-// 		return nil
-// 	}
-// 	version := v.ctx.GenSeq(common.FriendSeqKey)
-// 	err = v.user.FriendDB().Insert(&user.FriendModel{
-// 		UID:     uid,
-// 		ToUID:   kefuUid,
-// 		Version: version,
-// 	})
-// 	if err != nil {
-// 		v.Error("注册游客和客服互为好友失败", zap.Error(err))
-// 		return err
-// 	}
-// 	return nil
-// }
-
-// 发送游客拜访信息到群频道
-func (v *Visitor) sendVisitorInfo() {
+func (v *Visitor) genVisitorInfo() string {
 	var sentContent string
 	sentContent = fmt.Sprintf("来访游客: %s", v.visitorModel.Name)
 	sentContent = fmt.Sprintf("%s\nip: %s", sentContent, v.visitorModel.Ip)
@@ -900,14 +876,18 @@ func (v *Visitor) sendVisitorInfo() {
 	sentContent = fmt.Sprintf("%s\n系统: %s", sentContent, v.visitorModel.Os)
 	sentContent = fmt.Sprintf("%s\n浏览器: %s", sentContent, v.visitorModel.Browser)
 	sentContent = fmt.Sprintf("%s\n语言: %s", sentContent, v.visitorModel.Language)
+	return sentContent
+}
 
+// 发送游客拜访信息到群频道
+func (v *Visitor) sendVisitorInfo() {
 	//发送游客的来访信息给客服
 	err := v.ctx.SendMessage(&config.MsgSendReq{
 		FromUID:     v.visitorModel.UserUid,
 		ChannelID:   v.visitorModel.GroupUid,
 		ChannelType: common.ChannelTypeGroup.Uint8(),
 		Payload: []byte(util.ToJson(map[string]interface{}{
-			"content": sentContent,
+			"content": v.genVisitorInfo(),
 			"type":    common.Tip,
 		})),
 		Header: config.MsgHeader{
