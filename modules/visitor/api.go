@@ -322,9 +322,7 @@ func (v *Visitor) loginHandler() error {
 	}
 	var otherKefus []string
 	var hasKefu bool
-	var uid []string
 	for _, m := range members {
-		uid = append(uid, m.UID)
 		if m.UID == kefu.UID {
 			hasKefu = true
 		} else {
@@ -858,34 +856,34 @@ func (v *Visitor) genBindGroupNo() string {
 	return fmt.Sprintf("%s-%s", v.visitorModel.Uuid, v.currentProjectUid)
 }
 
-func (v *Visitor) getOnlineMemberWithGroupNo(groupNo string) ([]string, error) {
-	members, err := v.groupDB.QueryKefuMembers(groupNo)
-	if err != nil {
-		v.Error("查询群成员信息错误", zap.Error(err))
-		return nil, err
-	}
-	n := len(members)
-	if n == 0 {
-		return nil, nil
-	}
-	var uids []string
-	for _, gmember := range members {
-		uids = append(uids, gmember.UID)
-	}
-	uids, err = v.getOnlineUsers(uids)
-	if err != nil {
-		return nil, err
-	}
-	var res []string
-	for _, uid := range uids {
-		for _, gmember := range members {
-			if uid == gmember.UID {
-				res = append(res, uid)
-			}
-		}
-	}
-	return res, nil
-}
+// func (v *Visitor) getOnlineMemberWithGroupNo(groupNo string) ([]string, error) {
+// 	members, err := v.groupDB.QueryKefuMembers(groupNo)
+// 	if err != nil {
+// 		v.Error("查询群成员信息错误", zap.Error(err))
+// 		return nil, err
+// 	}
+// 	n := len(members)
+// 	if n == 0 {
+// 		return nil, nil
+// 	}
+// 	var uids []string
+// 	for _, gmember := range members {
+// 		uids = append(uids, gmember.UID)
+// 	}
+// 	uids, err = v.getOnlineUsers(uids)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	var res []string
+// 	for _, uid := range uids {
+// 		for _, gmember := range members {
+// 			if uid == gmember.UID {
+// 				res = append(res, uid)
+// 			}
+// 		}
+// 	}
+// 	return res, nil
+// }
 
 func (v *Visitor) getOnlineUsers(uids []string) ([]string, error) {
 	if len(uids) == 0 {
