@@ -155,10 +155,8 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	// 浏览器信息
 	browser, _ := ua.Browser()
 
-	isPc := IsDesktopDevice(req.Platform)
-
 	//如果是PC平台，但显示却是手机平台，那就表示不正常的请求，直接拒绝响应
-	if ua.Mobile() == isPc {
+	if ua.Mobile() == IsDesktopDevice(req.Platform) {
 		c.ResponseErrorWithStatus(errors.New("abnormal requests"), 400)
 		return
 	}
@@ -167,7 +165,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	name := "未知地區-網友"
 	if address.Country != "" {
 		name = address.Country
-		if address.City != "" && name == address.City {
+		if address.City != "" && name != address.City {
 			name = fmt.Sprintf("%s-%s", name, address.City)
 		}
 		name = fmt.Sprintf("%s-網友", name)
