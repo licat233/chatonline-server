@@ -86,8 +86,8 @@ type visitorLoginReq struct {
 	Platform    string `json:"platform"`    //客户端平台
 	Referer     string `json:"referer"`     //来源网站
 	VisitorUuid string `json:"token"`       //游客uuid，可为空，当为空时，以新用户身份登录
-	ProjectUuid string `json:"projectUuid"` //对接的项目uuid
-	RestKefu    bool   `json:"resetKefu"`   //是否重新分配客服, 默认false，true时当客服不在线时，将切换给其他客服
+	ProjectUuid string `json:"project_uid"` //对接的项目uuid
+	RestKefu    bool   `json:"reset_kefu"`  //是否重新分配客服, 默认false，true时当客服不在线时，将切换给其他客服
 }
 
 func (r *visitorLoginReq) VisitorLoginCheck() error {
