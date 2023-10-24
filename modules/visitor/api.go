@@ -62,7 +62,7 @@ func New(ctx *config.Context) *Visitor {
 		// kefuModel:                nil,
 		restKefu:          false,
 		lastLoginAt:       time.Now(),
-		visitorUserUid:    "visitor",
+		visitorUserUid:    ctx.GetConfig().VisitorUIDPrefix + "visitor",
 		visitorUserName:   "访客系统",
 		currentProjectUid: "",
 	}
@@ -350,10 +350,9 @@ func (v *Visitor) loginHandler() error {
 		return err
 	}
 	//不用换成token，凭uuid即可登录
-	token := v.visitorModel.Uuid
 	imResp, err := v.ctx.UpdateIMToken(config.UpdateIMTokenReq{
 		UID:         v.visitorUserUid,
-		Token:       token,
+		Token:       v.visitorModel.Uuid,
 		DeviceFlag:  config.DeviceFlag(config.Web), //注册设备的标记 0.app 1.web 2.PC
 		DeviceLevel: config.DeviceLevelSlave,
 	})
@@ -398,7 +397,7 @@ func (v *Visitor) registerHandler(c *wkhttp.Context) error {
 	//开启一个群聊频道，进行交流
 	_, err = v.group.VisitorGroupCreate(&group.VisitorGroupCreateReq{
 		CreateUid: v.visitorUserUid,
-		Name:      v.visitorUserName,
+		Name:      v.visitorModel.Name,
 		Members: []string{
 			kefu.UID,
 		},
@@ -623,10 +622,10 @@ func (v *Visitor) createUserModel() *user.Model {
 		Password:          util.GenerUUID(),
 		Category:          "visitor",
 		Sex:               0,
-		ShortNo:           "39999",
+		ShortNo:           "20001",
 		ShortStatus:       0,
 		Zone:              "0086",
-		Phone:             "13100000003",
+		Phone:             "13100000000",
 		ChatPwd:           "",
 		LockScreenPwd:     "",
 		LockAfterMinute:   0,
