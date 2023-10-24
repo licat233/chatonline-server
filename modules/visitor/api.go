@@ -142,7 +142,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	name := "未知地區-網友"
 	if address.Country != "" {
 		name = address.Country
-		if address.City != "" && name == address.City {
+		if address.City != "" && name != address.City {
 			name = fmt.Sprintf("%s-%s", name, address.City)
 		}
 		name = fmt.Sprintf("%s-網友", name)
