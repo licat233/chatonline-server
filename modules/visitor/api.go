@@ -103,12 +103,8 @@ type Resp struct {
 	Data any `json:"data"`
 }
 
-type LoginInfo struct {
-	// Uuid       string `json:"uuid"`
-	Token string `json:"token"` //登录凭证，也就是visitor_uid
-	// UserUid    string `json:"user_uid"`    //visitor绑定的user_uid
-	// KefuUid    string `json:"kefu_uid"`    //visitor指定的kefu_uid
-	// ProjectUid string `json:"project_uid"` //visitor拜访的项目所在group_uid
+type visitorLoginResp struct {
+	Token      string `json:"token"`       //登录凭证，也就是visitor_uid
 	ChannelUid string `json:"channel_uid"` //visitor所在的group_uid
 }
 
@@ -284,11 +280,8 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		go v.sendOnlineMsgToKefu()
 	}
 	//返回凭证，游客凭此凭证登录即可
-	loginInfo := &LoginInfo{
-		Token: v.visitorModel.Uuid,
-		// UserUid:    v.visitorModel.UserUid,
-		// KefuUid:    v.visitorModel.KefuUid,
-		// ProjectUid: v.visitorModel.ProjectUid,
+	loginInfo := &visitorLoginResp{
+		Token:      v.visitorModel.Uuid,
 		ChannelUid: v.genBindGroupNo(),
 	}
 	if isEncrypt {
@@ -666,33 +659,6 @@ func (v *Visitor) createUserModel() *user.Model {
 	}
 }
 
-// 处理注册游客和客服互为好友
-// func (v *Visitor) addKefuFriend(uid string, kefuUid string) error {
-// 	if uid == "" {
-// 		v.Error("用户ID不能为空")
-// 		return errors.New("用户ID不能为空")
-// 	}
-// 	isFriend, err := v.user.FriendDB().IsFriend(uid, kefuUid)
-// 	if err != nil {
-// 		v.Error("查询用户关系失败", zap.Error(err))
-// 		return err
-// 	}
-// 	if isFriend {
-// 		return nil
-// 	}
-// 	version := v.ctx.GenSeq(common.FriendSeqKey)
-// 	err = v.user.FriendDB().Insert(&user.FriendModel{
-// 		UID:     uid,
-// 		ToUID:   kefuUid,
-// 		Version: version,
-// 	})
-// 	if err != nil {
-// 		v.Error("注册游客和客服互为好友失败", zap.Error(err))
-// 		return err
-// 	}
-// 	return nil
-// }
-
 func (v *Visitor) genVisitorInfo() string {
 	var sentContent string
 	sentContent = fmt.Sprintf("来访游客: %s", v.visitorModel.Name)
@@ -770,6 +736,7 @@ func (v *Visitor) initVisitorUser() error {
 		return nil
 	}
 	userModel = v.createUserModel()
+	userModel.Robot = 1
 	//插入数据库
 	tx := v.user.Db().Tx()
 	defer func() {
@@ -785,24 +752,6 @@ func (v *Visitor) initVisitorUser() error {
 			v.Error("注册visitor用户失败", zap.Error(err))
 			return err
 		}
-
-		// //构建设备信息
-		// device := user.NewVisitorDeviceModel()
-		// device.UID = userModel.UID
-		// device.DeviceModel = v.visitorModel.Browser
-		// device.DeviceID = v.visitorModel.Uuid
-		// //注册设备信息
-		// err = v.user.DeviceDB().InsertOrUpdateDeviceTx(device, tx)
-		// if err != nil {
-		// 	v.Error("添加用户设备信息失败", zap.Error(err))
-		// 	return err
-		// }
-
-		// 添加客服好友, 游客身份，没必要添加客服好友
-		// if err = v.addKefuFriend(userModel.UID, v.visitorModel.KefuUid); err != nil {
-		// 	v.Error("添加客服好友出错", zap.Error(err))
-		// 	return err
-		// }
 
 		//发送用户注册事件
 		eventID, err := v.ctx.EventBegin(&wkevent.Data{
