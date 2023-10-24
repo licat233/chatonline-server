@@ -87,7 +87,7 @@ type visitorLoginReq struct {
 	Referer     string `json:"referer"`     //来源网站
 	VisitorUuid string `json:"token"`       //游客uuid，可为空，当为空时，以新用户身份登录
 	ProjectUuid string `json:"projectUuid"` //对接的项目uuid
-	RestKefu    bool   `json:"resetKefu"`   //是否重新分配客服
+	RestKefu    bool   `json:"resetKefu"`   //是否重新分配客服, 默认false，true时当客服不在线时，将切换给其他客服
 }
 
 func (r *visitorLoginReq) VisitorLoginCheck() error {
@@ -109,6 +109,7 @@ type Resp struct {
 
 type visitorLoginResp struct {
 	Token      string `json:"token"`       //登录凭证，也就是visitor_uid
+	UserUid    string `json:"user_uid"`    //游客绑定的user_uid
 	ChannelUid string `json:"channel_uid"` //visitor所在的group_uid
 }
 
@@ -275,6 +276,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	//返回凭证，游客凭此凭证登录即可
 	loginInfo := &visitorLoginResp{
 		Token:      v.visitorModel.Uuid,
+		UserUid:    v.visitorUserUid,
 		ChannelUid: v.genBindGroupNo(),
 	}
 	if isEncrypt {
