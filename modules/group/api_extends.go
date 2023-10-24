@@ -15,9 +15,11 @@ import (
 )
 
 type VisitorGroupCreateReq struct {
-	CreateUid string   `json:"create_uid"` //创建者uid
+	CreateUid string   `json:"create_uid"` // 创建者uid
 	Name      string   `json:"name"`       // 群名
 	Members   []string `json:"members"`    // 成员uid
+	GroupNo   string   `json:"group_no"`   // 群编号，格式为 visitorUid-projectUid 的组合
+	Notice    string   `json:"notice"`     // 群公告
 }
 
 func (g *Group) VisitorGroupCreate(req *VisitorGroupCreateReq) (*Model, error) {
@@ -46,7 +48,7 @@ func (g *Group) VisitorGroupCreate(req *VisitorGroupCreateReq) (*Model, error) {
 	}
 	groupName := req.Name
 
-	groupNo := util.GenerUUID()
+	groupNo := req.GroupNo
 
 	version := g.ctx.GenSeq(common.GroupSeqKey)
 	channelServiceObj := register.GetService(ChannelServiceName)
@@ -79,6 +81,7 @@ func (g *Group) VisitorGroupCreate(req *VisitorGroupCreateReq) (*Model, error) {
 		Status:              GroupStatusNormal,
 		Version:             version,
 		AllowViewHistoryMsg: int(common.GroupAllowViewHistoryMsgEnabled),
+		Notice:              req.Notice,
 	}, tx)
 	if err != nil {
 		g.Error("添加群失败！", zap.Error(err))

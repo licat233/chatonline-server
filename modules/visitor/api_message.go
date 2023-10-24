@@ -32,6 +32,6 @@ func (v *Visitor) syncChannelMessage(c *wkhttp.Context) {
 		c.ResponseWithStatus(400, "login_uid not found！")
 		return
 	}
-	req.LoginUID = vistor.UserUid
+	req.LoginUID = v.visitorUserUid
 	v.message.SyncChannelMessage(c, &req)
 }

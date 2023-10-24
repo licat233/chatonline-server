@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/pkg/wkhttp"
@@ -289,4 +290,39 @@ func CompressZlibData(data []byte) ([]byte, error) {
 func IsJSON(data []byte) bool {
 	var js json.RawMessage
 	return json.Unmarshal(data, &js) == nil
+}
+
+func IsDesktopDevice(platform string) bool {
+	// 将 platform 转换为小写，以便进行比较
+	platform = strings.ToLower(platform)
+
+	// 判断是否为电脑设备
+	if strings.Contains(platform, "win") || strings.Contains(platform, "mac") ||
+		(strings.Contains(platform, "linux") && !strings.Contains(platform, "arm")) {
+		return true
+	}
+
+	return false
+}
+
+func FindCommonStrings(arr1 []string, arr2 []string) []string {
+	// 创建一个空的字符串切片，用于存储相同的字符串
+	commonStrings := []string{}
+
+	// 创建一个 map，用于存储 arr1 中的字符串
+	stringMap := make(map[string]bool)
+
+	// 将 arr1 中的字符串添加到 map 中
+	for _, str := range arr1 {
+		stringMap[str] = true
+	}
+
+	// 遍历 arr2，如果字符串在 map 中存在，则添加到 commonStrings 中
+	for _, str := range arr2 {
+		if stringMap[str] {
+			commonStrings = append(commonStrings, str)
+		}
+	}
+
+	return commonStrings
 }

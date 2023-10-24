@@ -4,10 +4,10 @@
 CREATE TABLE IF NOT EXISTS `visitor` (
   `id` int NOT NULL AUTO_INCREMENT COMMENT '表主键',
   `uuid` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT 'UUID',
-  `user_uid`  varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '用户uid，所使用的用户身份',
-  `kefu_uid` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '客服uid',
-  `project_uid` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '项目uid，也就是客服所在的group_no',
-  `group_uid` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '群频道uid',
+  -- `user_uid`  varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '用户uid，所使用的用户身份',
+  -- `kefu_uid` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '客服uid',
+  -- `project_uid` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '项目uid，也就是客服所在的group_no',
+  -- `group_uid` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '群频道uid',
   `comment` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '备注',
   `status` tinyint NOT NULL DEFAULT '0' COMMENT '状态:0离线，1在线，2拉黑',
   `name` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '游客名',
@@ -26,9 +26,10 @@ CREATE TABLE IF NOT EXISTS `visitor` (
   PRIMARY KEY (`id`),
   KEY `idx_uuid` (`uuid`),
   KEY `idx_status` (`status`),
-  KEY `idx_user_uid` (`user_uid`),
-  KEY `idx_kefu_uid` (`kefu_uid`),
-  KEY `idx_project_uid` (`project_uid`),
-  KEY `idx_group_uid` (`group_uid`),
-  KEY `idx_ip` (`ip`)
+  -- KEY `idx_user_uid` (`user_uid`),
+  -- KEY `idx_kefu_uid` (`kefu_uid`),
+  -- KEY `idx_project_uid` (`project_uid`),
+  -- KEY `idx_group_uid` (`group_uid`),
+  KEY `idx_ip` (`ip`),
+  KEY `idx_last_login_at` (`last_login_at`)
 );

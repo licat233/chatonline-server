@@ -21,3 +21,17 @@ func (d *DB) UpdateMemberRemark(id int64, remark string) error {
 	}).Where("id=?", id).Exec()
 	return err
 }
+
+// 查找可用的客服
+func (d *DB) QueryKefuMembers(groupNo string) ([]*MemberModel, error) {
+	var memberModels []*MemberModel
+	_, err := d.session.Select("*").From("group_member").Where("group_no=? and is_deleted=0 and role=0 and robot=0 and status=1 and uid<>'visitor'", groupNo).Load(&memberModels)
+	return memberModels, err
+}
+
+// 查找某个user是否在群内
+func (d *DB) ExistMemberInGroup(uid string, groupNo string) (bool, error) {
+	var count int
+	_, err := d.session.Select("COUNT(*)").From("group_member").Where("group_no=? and uid=?", groupNo, uid).Limit(1).Load(&count)
+	return count != 0, err
+}

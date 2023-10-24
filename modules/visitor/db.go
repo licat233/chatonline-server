@@ -10,12 +10,12 @@ import (
 )
 
 type Model struct {
-	Id          int64     `db:"id"`            // 表主键
-	Uuid        string    `db:"uuid"`          // UUID
-	UserUid     string    `db:"user_uid"`      // 用户uid
-	KefuUid     string    `db:"kefu_uid"`      // 客服uid
-	ProjectUid  string    `db:"project_uid"`   // 项目uid
-	GroupUid    string    `db:"group_uid"`     // 群频道uid
+	Id   int64  `db:"id"`   // 表主键
+	Uuid string `db:"uuid"` // UUID
+	// UserUid string `db:"user_uid"` // 用户uid
+	// KefuUid string `db:"kefu_uid"` // 客服uid
+	// ProjectUid  string    `db:"project_uid"`   // 项目uid
+	// GroupUid    string    `db:"group_uid"`     // 群频道uid
 	Comment     string    `db:"comment"`       // 备注
 	Status      int64     `db:"status"`        // 状态:0离线，1在线，2拉黑
 	Name        string    `db:"name"`          // 游客名
@@ -94,8 +94,8 @@ func (d *DB) Insert(m *Model) error {
 // Update 更新游客
 func (d *DB) Update(model *Model) error {
 	_, err := d.session.Update("visitor").SetMap(map[string]interface{}{
-		"kefu_uid":      model.KefuUid,
-		"group_uid":     model.GroupUid,
+		// "kefu_uid": model.KefuUid,
+		// "group_uid":     model.GroupUid,
 		"name":          model.Name,
 		"comment":       model.Comment,
 		"status":        model.Status,
