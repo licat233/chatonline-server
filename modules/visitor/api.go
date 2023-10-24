@@ -98,7 +98,7 @@ func (r *visitorLoginReq) VisitorLoginCheck() error {
 		return errors.New("referer cannot be empty")
 	}
 	if strings.TrimSpace(r.ProjectUuid) == "" {
-		return errors.New("project_uuid cannot be empty")
+		return errors.New("project_uid cannot be empty")
 	}
 	return nil
 }
