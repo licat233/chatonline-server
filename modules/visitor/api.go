@@ -74,8 +74,8 @@ type visitorLoginReq struct {
 	Platform    string `json:"platform"`    //客户端平台
 	Referer     string `json:"referer"`     //来源网站
 	VisitorUuid string `json:"token"`       //游客uuid，可为空，当为空时，以新用户身份登录
-	ProjectUuid string `json:"projectUuid"` //对接的项目uuid
-	RestKefu    bool   `json:"resetKefu"`   //是否重新分配客服
+	ProjectUuid string `json:"project_uid"` //对接的项目uuid
+	RestKefu    bool   `json:"reset_kefu"`  //是否重新分配客服
 }
 
 func (r *visitorLoginReq) VisitorLoginCheck() error {
@@ -86,7 +86,7 @@ func (r *visitorLoginReq) VisitorLoginCheck() error {
 		return errors.New("referer cannot be empty")
 	}
 	if strings.TrimSpace(r.ProjectUuid) == "" {
-		return errors.New("projectUuid cannot be empty")
+		return errors.New("project_uid cannot be empty")
 	}
 	return nil
 }
@@ -95,13 +95,10 @@ type Resp struct {
 	Data any `json:"data"`
 }
 
-type LoginInfo struct {
-	// Uuid       string `json:"uuid"`
-	Token      string `json:"token"`       //登录凭证，也就是visitor_uid
-	UserUid    string `json:"user_uid"`    //visitor绑定的user_uid
-	KefuUid    string `json:"kefu_uid"`    //visitor指定的kefu_uid
-	ProjectUid string `json:"project_uid"` //visitor拜访的项目所在group_uid
-	GroupUid   string `json:"channel_uid"` //visitor所在的group_uid
+type visitorLoginResp struct {
+	Token    string `json:"token"`       //登录凭证，也就是visitor_uid
+	UserUid  string `json:"user_uid"`    //visitor绑定的user_uid
+	GroupUid string `json:"channel_uid"` //visitor所在的group_uid
 }
 
 func (v *Visitor) Login(c *wkhttp.Context) {
@@ -249,12 +246,10 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		go v.sendOnlineMsgToKefu()
 	}
 	//返回凭证，游客凭此凭证登录即可
-	loginInfo := &LoginInfo{
-		Token:      v.visitorModel.Uuid,
-		UserUid:    v.visitorModel.UserUid,
-		KefuUid:    v.visitorModel.KefuUid,
-		ProjectUid: v.visitorModel.ProjectUid,
-		GroupUid:   v.visitorModel.GroupUid,
+	loginInfo := &visitorLoginResp{
+		Token:    v.visitorModel.Uuid,
+		UserUid:  v.visitorModel.UserUid,
+		GroupUid: v.visitorModel.GroupUid,
 	}
 	if isEncrypt {
 		encryptData := EncryptData(loginInfo)
