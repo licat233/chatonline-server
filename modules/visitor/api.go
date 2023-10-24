@@ -193,7 +193,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	visitor := &Model{
 		Id:          0,
 		Uuid:        util.GenerUUID(),
-		UserUid:     v.GenVisitorUserUID(),
+		UserUid:     v.genVisitorUserUID(),
 		KefuUid:     "",
 		ProjectUid:  v.groupModel.GroupNo,
 		GroupUid:    "",
@@ -302,7 +302,7 @@ func (v *Visitor) loginHandler() error {
 				newKefuUid,
 			},
 			Notice:  v.genVisitorInfo(),
-			GroupNo: v.visitorModel.Uuid,
+			GroupNo: v.genBindGroupNo(),
 		})
 		if err != nil {
 			return err
@@ -570,7 +570,7 @@ func (v *Visitor) registerHandler(c *wkhttp.Context) error {
 			v.visitorModel.KefuUid,
 		},
 		Notice:  v.genVisitorInfo(),
-		GroupNo: v.visitorModel.Uuid,
+		GroupNo: v.genBindGroupNo(),
 	})
 	if err != nil {
 		v.Error("创建游客群频道失败！", zap.Error(err))
@@ -821,7 +821,7 @@ func (v *Visitor) createUserModel(m *Model) (*user.Model, error) {
 		shortNo = util.Ten2Hex(time.Now().UnixNano())
 	}
 	if len(m.UserUid) == 0 {
-		m.UserUid = v.GenVisitorUserUID()
+		m.UserUid = v.genVisitorUserUID()
 	}
 	return &user.Model{
 		AppID:             "",
@@ -884,7 +884,7 @@ func (v *Visitor) sendVisitorInfo() {
 	//发送游客的来访信息给客服
 	err := v.ctx.SendMessage(&config.MsgSendReq{
 		FromUID:     v.visitorModel.UserUid,
-		ChannelID:   v.visitorModel.GroupUid,
+		ChannelID:   v.genBindGroupNo(),
 		ChannelType: common.ChannelTypeGroup.Uint8(),
 		Payload: []byte(util.ToJson(map[string]interface{}{
 			"content": v.genVisitorInfo(),
@@ -908,7 +908,7 @@ func (v *Visitor) sendOnlineMsgToKefu() {
 	//发送游客的上线信息给客服
 	err := v.ctx.SendMessage(&config.MsgSendReq{
 		FromUID:     v.visitorModel.UserUid,
-		ChannelID:   v.visitorModel.GroupUid,
+		ChannelID:   v.genBindGroupNo(),
 		ChannelType: common.ChannelTypeGroup.Uint8(),
 		Payload: []byte(util.ToJson(map[string]interface{}{
 			"content": "已上線",
@@ -923,6 +923,10 @@ func (v *Visitor) sendOnlineMsgToKefu() {
 	}
 }
 
-func (v *Visitor) GenVisitorUserUID() string {
+func (v *Visitor) genVisitorUserUID() string {
 	return v.ctx.GetConfig().VisitorUIDPrefix + util.GenerUUID()
+}
+
+func (v *Visitor) genBindGroupNo() string {
+	return fmt.Sprintf("%s%s", v.visitorModel.Uuid, v.groupModel.GroupNo)
 }

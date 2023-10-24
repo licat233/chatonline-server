@@ -11,7 +11,7 @@ current_path=$(
 cd $current_path
 
 git add --all
-git commit -m "修改群的创建" --no-verify
+git commit -m "update" --no-verify
 git push origin1 main
 
 # git checkout --orphan latest_branch
