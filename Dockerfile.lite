@@ -1,11 +1,25 @@
+# FROM golang:latest as builder
+
 FROM alpine:latest
 
+# COPY --from=builder /etc/passwd /etc/passwd
+# COPY --from=builder /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+# RUN \
+#     mkdir -p /usr/share/zoneinfo/Asia && \
+#     ln -s /etc/localtime /usr/share/zoneinfo/Asia/Shanghai
+# COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
+COPY ./zoneinfo/Shanghai /etc/localtime
+RUN \
+    mkdir -p /usr/share/zoneinfo/Asia && \
+    ln -s /etc/localtime /usr/share/zoneinfo/Asia/Shanghai
+RUN echo "Asia/Shanghai" > /etc/timezone
 ENV TZ=Asia/Shanghai
 
 WORKDIR /home
+
 COPY ./app /home
 COPY ./assets /home/assets
 COPY ./configs /home/configs
 
-ENV TZ=Asia/Shanghai
 ENTRYPOINT ["/home/app"]

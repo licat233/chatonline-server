@@ -63,7 +63,7 @@ func New(ctx *config.Context) *Visitor {
 		restKefu:          false,
 		lastLoginAt:       time.Now(),
 		visitorUserUid:    ctx.GetConfig().VisitorUIDPrefix + "visitor",
-		visitorUserName:   "访客系统",
+		visitorUserName:   "客服系统",
 		currentProjectUid: "",
 	}
 
@@ -162,13 +162,13 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	}
 
 	// 名字
-	name := "未知地區-網友"
+	name := "未知地區-訪客"
 	if address.Country != "" {
 		name = address.Country
 		if address.City != "" && name != address.City {
 			name = fmt.Sprintf("%s-%s", name, address.City)
 		}
-		name = fmt.Sprintf("%s-網友", name)
+		// name = fmt.Sprintf("%s-網友", name)
 	}
 
 	// 查验项目uuid是否存在
@@ -349,20 +349,7 @@ func (v *Visitor) loginHandler() error {
 		v.Error("更新游客信息错误", zap.Error(err))
 		return err
 	}
-	//不用换成token，凭uuid即可登录
-	imResp, err := v.ctx.UpdateIMToken(config.UpdateIMTokenReq{
-		UID:         v.visitorUserUid,
-		Token:       v.visitorModel.Uuid,
-		DeviceFlag:  config.DeviceFlag(config.Web), //注册设备的标记 0.app 1.web 2.PC
-		DeviceLevel: config.DeviceLevelSlave,
-	})
-	if err != nil {
-		v.Error("更新IM的token失败！", zap.Error(err))
-		return err
-	}
-	if imResp.Status == config.UpdateTokenStatusBan {
-		return errors.New("this account has been banned")
-	}
+
 	return nil
 }
 
@@ -411,10 +398,32 @@ func (v *Visitor) registerHandler(c *wkhttp.Context) error {
 
 	//更新
 	if err = v.db.Update(v.visitorModel); err != nil {
-		v.Error("创建群频道后，更新游客信息失败！", zap.Error(err))
+		v.Error("更新游客信息失败！", zap.Error(err))
 		return err
 	}
 
+	if err = v.RegisterIMToken(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (v *Visitor) RegisterIMToken() error {
+	// 不用换成token，凭uuid即可登录
+	imResp, err := v.ctx.UpdateIMToken(config.UpdateIMTokenReq{
+		UID:         v.visitorUserUid,
+		Token:       v.visitorModel.Uuid,
+		DeviceFlag:  config.DeviceFlag(config.Web), //注册设备的标记 0.app 1.web 2.PC
+		DeviceLevel: config.DeviceLevelSlave,
+	})
+	if err != nil {
+		v.Error("更新IM的token失败！", zap.Error(err))
+		return err
+	}
+	if imResp.Status == config.UpdateTokenStatusBan {
+		return errors.New("this account has been banned")
+	}
 	return nil
 }
 
@@ -655,9 +664,9 @@ func (v *Visitor) createUserModel() *user.Model {
 
 func (v *Visitor) genVisitorInfo() string {
 	var sentContent string
-	sentContent = fmt.Sprintf("来访游客: %s", v.visitorModel.Name)
+	sentContent = fmt.Sprintf("来访游客id: %d", v.visitorModel.Id)
 	sentContent = fmt.Sprintf("%s\nip: %s", sentContent, v.visitorModel.Ip)
-	sentContent = fmt.Sprintf("%s\n时间: %s", sentContent, time.Now().Local())
+	sentContent = fmt.Sprintf("%s\n时间: %s", sentContent, time.Now().UTC().Format("2006-01-02 15:04:05"))
 	sentContent = fmt.Sprintf("%s\n来源: %s", sentContent, v.visitorModel.Referer)
 	sentContent = fmt.Sprintf("%s\n地区: %s", sentContent, v.visitorModel.Region)
 	sentContent = fmt.Sprintf("%s\n城市: %s", sentContent, v.visitorModel.City)
