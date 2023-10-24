@@ -33,13 +33,11 @@ type Visitor struct {
 	message *message.Message
 	group   *group.Group
 
-	visitorModel *Model
-	// userModel    *user.Model
+	visitorModel             *Model
 	currentProjectGroupModel *group.Model
-	// kefuModel         *user.Model
 
-	restKefu    bool //是否重新分配客服
-	lastLoginAt time.Time
+	restKefu    bool      //是否重新分配客服
+	lastLoginAt time.Time //存储上一次登录时间，便于共享给其它函数使用
 
 	visitorUserUid  string //游客用户的通用uid
 	visitorUserName string //游客用户的通用uid
@@ -63,9 +61,15 @@ func New(ctx *config.Context) *Visitor {
 		restKefu:          false,
 		lastLoginAt:       time.Now(),
 		visitorUserUid:    "visitor",
-		visitorUserName:   "系统",
+		visitorUserName:   "访客系统",
 		currentProjectUid: "",
 	}
+
+	// // 初始化访客账号
+	// if err := v.InitVisitorUser(); err != nil {
+	// 	v.Error("初始化visitor信息失败", zap.Error(err))
+	// 	panic(err)
+	// }
 
 	return v
 }
@@ -122,13 +126,6 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	}
 
 	v.currentProjectUid = req.ProjectUuid
-
-	//初始化访客账号
-	if err := v.initVisitorUser(); err != nil {
-		v.Error("初始化visitor信息失败", zap.Error(err))
-		c.ResponseError(err)
-		return
-	}
 
 	v.restKefu = req.RestKefu
 	// 获取referer
@@ -227,12 +224,8 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	if isNewVisitor {
 		//如果是新用户，则开始创建用户信息
 		visitor := &Model{
-			Id:   0,
-			Uuid: util.GenerUUID(),
-			// UserUid:     v.visitorUserUid,
-			// KefuUid:     "",
-			// ProjectUid:  v.currentProjectUid,
-			// GroupUid:    "",
+			Id:          0,
+			Uuid:        util.GenerUUID(),
 			Comment:     "",
 			Status:      0,
 			Name:        name,
@@ -725,7 +718,7 @@ func (v *Visitor) GenVisitorUserUID() string {
 	return v.ctx.GetConfig().VisitorUIDPrefix + util.GenerUUID()
 }
 
-func (v *Visitor) initVisitorUser() error {
+func (v *Visitor) InitVisitorUser() error {
 	userModel, err := v.user.Db().QueryByUID(v.visitorUserUid)
 	if err != nil {
 		v.Error("更新用戶信息错误", zap.Error(err))
