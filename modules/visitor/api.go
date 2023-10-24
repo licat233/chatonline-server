@@ -2,6 +2,8 @@
 package visitor
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -797,7 +799,10 @@ func (v *Visitor) InitVisitorUser() error {
 }
 
 func (v *Visitor) genBindGroupNo() string {
-	return fmt.Sprintf("%s-%s", v.visitorModel.Uuid, v.currentProjectUid)
+	md5Hash := md5.Sum([]byte(v.visitorModel.Uuid))
+	md5String := hex.EncodeToString(md5Hash[:])
+	// 存在不唯一性，但可能性很小，要是遇到了，可以去买彩票了
+	return md5String
 }
 
 // func (v *Visitor) getOnlineMemberWithGroupNo(groupNo string) ([]string, error) {
