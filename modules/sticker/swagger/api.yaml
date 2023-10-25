@@ -24,7 +24,7 @@ paths:
         - application/json
       produces:
         - application/json
-host: "api.im.catli.net"
+host: "api.im.mixbench.net"
 schemes:
   - http
 basePath: /

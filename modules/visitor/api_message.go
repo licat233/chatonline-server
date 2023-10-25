@@ -3,35 +3,43 @@ package visitor
 import (
 	"errors"
 
+	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/common"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/config"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/pkg/wkhttp"
-	"go.uber.org/zap"
 )
+
+type syncChannelMessageReq struct {
+	Token           string          `json:"token"`             //验证token
+	ProjectUid      string          `json:"project_uid"`       // 项目所在群的group_no
+	StartMessageSeq uint32          `json:"start_message_seq"` // 开始序列号
+	EndMessageSeq   uint32          `json:"end_message_seq"`   // 结束序列号
+	Limit           int             `json:"limit"`             // 每次同步数量限制
+	PullMode        config.PullMode `json:"pull_mode"`         // 拉取模式
+}
 
 // 同步频道消息
 func (v *Visitor) syncChannelMessage(c *wkhttp.Context) {
-	var req config.SyncChannelMessageReq
+	var req syncChannelMessageReq
 	_, err := UnmarshalReqData(c, &req)
 	if err != nil {
 		c.ResponseError(err)
 		return
 	}
+	if req.Token == "" {
+		c.ResponseErrorWithStatus(errors.New("authorization fail"), 401)
+		return
+	}
 
-	visitorUid := req.LoginUID
-	if visitorUid == "" {
-		c.ResponseError(errors.New("login_uid is empty！"))
-		return
+	in := &config.SyncChannelMessageReq{
+		LoginUID:        v.visitorUserUid,
+		DeviceUUID:      "",
+		ChannelID:       v.req.ChannelID,
+		ChannelType:     common.ChannelTypeGroup.Uint8(),
+		StartMessageSeq: req.StartMessageSeq,
+		EndMessageSeq:   req.EndMessageSeq,
+		Limit:           req.Limit,
+		PullMode:        req.PullMode,
 	}
-	vistor, err := v.db.QueryByUUID(visitorUid)
-	if err != nil {
-		v.Error("查询游客信息错误", zap.Error(err))
-		c.ResponseErrorf("query visitor error！", err)
-		return
-	}
-	if vistor == nil {
-		c.ResponseWithStatus(400, "login_uid not found！")
-		return
-	}
-	req.LoginUID = v.visitorUserUid
-	v.message.SyncChannelMessage(c, &req)
+
+	v.message.SyncChannelMessage(c, in)
 }

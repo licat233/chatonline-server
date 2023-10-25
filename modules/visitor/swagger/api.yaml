@@ -27,10 +27,10 @@ paths:
                 description: 来源
               projectUuid:
                 type: string
-                description: 项目uuid
+                description: 项目uid
               token:
                 type: string
-                description: 游客uuid
+                description: token
             required:
               - platform
               - referer
@@ -46,7 +46,7 @@ paths:
         - application/json
       produces:
         - application/json
-host: "api.im.catli.net"
+host: "api.im.mixbench.net"
 schemes:
   - http
 basePath: /

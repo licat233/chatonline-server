@@ -5,7 +5,9 @@ import (
 	"compress/flate"
 	"compress/gzip"
 	"compress/zlib"
+	"crypto/md5"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -325,4 +327,10 @@ func FindCommonStrings(arr1 []string, arr2 []string) []string {
 	}
 
 	return commonStrings
+}
+
+func MD5(s string) string {
+	md5Hash := md5.Sum([]byte(s))
+	md5String := hex.EncodeToString(md5Hash[:])
+	return md5String
 }

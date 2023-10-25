@@ -2,15 +2,12 @@
 package visitor
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/rand"
 	"strings"
 	"time"
 
-	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/base/event"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/group"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/message"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/user"
@@ -18,16 +15,29 @@ import (
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/pkg/util"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/common"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/config"
-	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/pkg/wkevent"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/pkg/wkhttp"
 	"github.com/mssola/useragent"
 	"go.uber.org/zap"
 )
 
+type Info struct {
+	Id       int64
+	Name     string
+	Ip       string
+	Referer  string
+	Region   string
+	City     string
+	Platform string
+	Device   string
+	Os       string
+	Browser  string
+	Language string
+}
+
 type Visitor struct {
 	ctx *config.Context
 	log.Log
-	db *DB
+	// db *DB
 	// userDB  *user.DB
 	groupDB *group.DB
 
@@ -35,36 +45,35 @@ type Visitor struct {
 	message *message.Message
 	group   *group.Group
 
-	visitorModel             *Model
 	currentProjectGroupModel *group.Model
 
-	restKefu    bool      //是否重新分配客服
-	lastLoginAt time.Time //存储上一次登录时间，便于共享给其它函数使用
+	lastLoginAt time.Time //[考虑删除]存储上一次登录时间，便于共享给其它函数使用
 
 	visitorUserUid  string //游客用户的通用uid
 	visitorUserName string //游客用户的通用uid
 
-	currentProjectUid string
+	req *visitorLoginReq
+
+	info *Info //访客信息
+
+	imToken string //游客登录im的token
 }
 
 func New(ctx *config.Context) *Visitor {
 	v := &Visitor{
-		ctx:          ctx,
-		Log:          log.NewTLog("Visitor"),
-		db:           NewDB(ctx),
-		groupDB:      group.NewDB(ctx),
-		user:         user.New(ctx),
-		message:      message.New(ctx),
-		group:        group.New(ctx),
-		visitorModel: nil,
-		// userModel:    nil,
+		ctx:                      ctx,
+		Log:                      log.NewTLog("Visitor"),
+		groupDB:                  group.NewDB(ctx),
+		user:                     user.New(ctx),
+		message:                  message.New(ctx),
+		group:                    group.New(ctx),
 		currentProjectGroupModel: nil,
-		// kefuModel:                nil,
-		restKefu:          false,
-		lastLoginAt:       time.Now(),
-		visitorUserUid:    ctx.GetConfig().VisitorUIDPrefix + "visitor",
-		visitorUserName:   "客服系统",
-		currentProjectUid: "",
+		lastLoginAt:              time.Now(),
+		visitorUserUid:           ctx.GetConfig().VisitorUIDPrefix + "visitor",
+		visitorUserName:          "客服系统",
+		req:                      nil,
+		info:                     nil,
+		imToken:                  "",
 	}
 
 	return v
@@ -82,8 +91,8 @@ func (v *Visitor) Route(r *wkhttp.WKHttp) {
 type visitorLoginReq struct {
 	Platform    string `json:"platform"`    //客户端平台
 	Referer     string `json:"referer"`     //来源网站
-	VisitorUuid string `json:"token"`       //游客uuid，可为空，当为空时，以新用户身份登录
-	ProjectUuid string `json:"project_uid"` //对接的项目uuid
+	ProjectUuid string `json:"project_uid"` //对接的项目uid
+	ChannelID   string `json:"channel_uid"` //聊天频道ID，可为空，当为空时，以新用户身份登录
 	RestKefu    bool   `json:"reset_kefu"`  //是否重新分配客服, 默认false，true时当客服不在线时，将切换给其他客服
 }
 
@@ -105,19 +114,12 @@ type Resp struct {
 }
 
 type visitorLoginResp struct {
-	Token      string `json:"token"`       //登录凭证，也就是visitor_uid
-	UserUid    string `json:"user_uid"`    //游客绑定的user_uid
-	ChannelUid string `json:"channel_uid"` //visitor所在的group_uid
+	IMToken   string `json:"im_token"`    //游客登录im的token
+	ChannelID string `json:"channel_uid"` //聊天频道ID
+	UserUid   string `json:"user_uid"`    //游客绑定的user_uid
 }
 
 func (v *Visitor) Login(c *wkhttp.Context) {
-	// 初始化访客账号，不需要
-	// if err := v.InitVisitorUser(); err != nil {
-	// 	initMark = false
-	// 	v.Error("初始化visitor信息失败", zap.Error(err))
-	// 	panic(err)
-	// }
-
 	var req visitorLoginReq
 	isEncrypt, err := UnmarshalReqData(c, &req)
 	if err != nil {
@@ -130,13 +132,10 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		return
 	}
 
-	v.currentProjectUid = req.ProjectUuid
+	v.req = &req
 
-	v.restKefu = req.RestKefu
 	// 获取referer
 	referer := req.Referer
-	// 是否为本地开发模式
-	// isDev := strings.HasPrefix(req.Referer, "http://localhost")
 	// 获取设备信息
 	ua := useragent.New(c.Context.Request.UserAgent())
 	// 如果是机器人
@@ -170,7 +169,6 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		if address.City != "" && name != address.City {
 			name = fmt.Sprintf("%s-%s", name, address.City)
 		}
-		// name = fmt.Sprintf("%s-網友", name)
 	}
 
 	// 查验项目uuid是否存在
@@ -187,65 +185,44 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		return
 	}
 
-	//查询该游客uuid是否存在
-	visitorUid := strings.TrimSpace(req.VisitorUuid)
 	// 默认为新游客
 	isNewVisitor := true
 
-	if len(visitorUid) != 0 {
-		v.visitorModel, err = v.db.QueryByUUID(visitorUid)
+	if req.ChannelID != "" {
+		// 同时检查其绑定的group是否存在
+		group, err := v.groupDB.QueryGroupWithGroupNo(req.ChannelID)
 		if err != nil {
-			v.Error("查询游客信息错误", zap.Error(err))
-			c.ResponseErrorf("query visitor error！", err)
+			v.Error("查询群信息错误", zap.Error(err))
+			c.ResponseErrorf("query group error！", err)
 			return
 		}
-		//如果不存在，那就是新访客
-		isNewVisitor = v.visitorModel == nil
-		if v.visitorModel != nil {
-			// 同时检查其绑定的group是否存在
-			group, err := v.groupDB.QueryGroupWithGroupNo(v.genBindGroupNo())
+		//如果存在，还要检查自己是否在群里面
+		if group != nil {
+			exist, err := v.group.Service().ExistMember(req.ChannelID, v.visitorUserUid)
 			if err != nil {
-				v.Error("查询群信息错误", zap.Error(err))
-				c.ResponseErrorf("query group error！", err)
+				v.Error("查询是否在群内存在失败！", zap.Error(err))
+				c.ResponseError(errors.New("查询是否在群内存在失败！"))
 				return
 			}
-			//如果存在，还要检查自己是否在群里面
-			if group != nil {
-				//查看是否存在自己
-				exists, err := v.groupDB.ExistMemberInGroup(v.visitorUserUid, v.genBindGroupNo())
-				if err != nil {
-					v.Error("查询群成员信息错误", zap.Error(err))
-					c.ResponseErrorf("query group error！", err)
-					return
-				}
-				//如果自己不在里面，表示该访客为新访客
-				isNewVisitor = !exists
-			}
+			//如果自己不在里面，表示该访客为新访客
+			isNewVisitor = !exist
 		}
 	}
 
+	v.info = &Info{
+		Name:     name,
+		Ip:       ip,
+		Referer:  referer,
+		Region:   address.Country,
+		City:     address.City,
+		Platform: req.Platform,
+		Device:   ua.Platform(),
+		Os:       ua.OS(),
+		Browser:  browser,
+		Language: languages,
+	}
+
 	if isNewVisitor {
-		//如果是新用户，则开始创建用户信息
-		visitor := &Model{
-			Id:          0,
-			Uuid:        util.GenerUUID(),
-			Comment:     "",
-			Status:      0,
-			Name:        name,
-			Ip:          ip,
-			Referer:     referer,
-			Region:      address.Country,
-			City:        address.City,
-			Platform:    req.Platform,
-			Device:      ua.Platform(),
-			Os:          ua.OS(),
-			Browser:     browser,
-			Language:    languages,
-			LastLoginAt: time.Now(),
-			CreateAt:    time.Time{},
-			UpdateAt:    time.Time{},
-		}
-		v.visitorModel = visitor
 		err = v.registerHandler(c)
 		if err != nil {
 			c.ResponseErrorf("create visitor error！", err)
@@ -253,21 +230,6 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		}
 		go v.sendVisitorInfo()
 	} else {
-		//如果是老用户，则开始登录
-		//记录上一次登录时间，防止被覆盖
-		v.lastLoginAt = v.visitorModel.LastLoginAt
-
-		//需要更新的字段
-		v.visitorModel.Ip = ip
-		v.visitorModel.Referer = referer
-		v.visitorModel.Region = address.Country
-		v.visitorModel.City = address.City
-		v.visitorModel.Platform = req.Platform
-		v.visitorModel.Device = ua.Platform()
-		v.visitorModel.Os = ua.OS()
-		v.visitorModel.Browser = browser
-		v.visitorModel.Language = languages
-		v.visitorModel.LastLoginAt = time.Now()
 		err = v.loginHandler()
 		if err != nil {
 			c.ResponseErrorf("visitor login error！", err)
@@ -277,9 +239,8 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	}
 	//返回凭证，游客凭此凭证登录即可
 	loginInfo := &visitorLoginResp{
-		Token:      v.visitorModel.Uuid,
-		UserUid:    v.visitorUserUid,
-		ChannelUid: v.genBindGroupNo(),
+		ChannelID: v.req.ChannelID,
+		UserUid:   v.visitorUserUid,
 	}
 	if isEncrypt {
 		encryptData := EncryptData(loginInfo)
@@ -292,9 +253,6 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 // 游客登录
 // 将游客绑定的用户进行登录操作
 func (v *Visitor) loginHandler() error {
-	if v.visitorModel == nil {
-		panic(errors.New("visitor does not exist"))
-	}
 	//分配一个客服出来
 	kefu, err := v.assignKefu()
 	if err != nil {
@@ -304,8 +262,8 @@ func (v *Visitor) loginHandler() error {
 		v.Error("游客未分配到客服")
 		return errors.New("visitor not assigned to customer service")
 	}
-	//查询群会员
-	members, err := v.groupDB.QueryMembersWithGroupNo(v.genBindGroupNo())
+	//查询咨询群里的会员
+	members, err := v.groupDB.QueryMembersWithGroupNo(v.req.ChannelID)
 	if err != nil {
 		v.Error("查询群会员错误", zap.Error(err))
 		return err
@@ -328,7 +286,7 @@ func (v *Visitor) loginHandler() error {
 			Members: []string{
 				kefu.UID,
 			},
-			GroupNo: v.genBindGroupNo(),
+			GroupNo: v.req.ChannelID,
 		})
 		if err != nil {
 			return err
@@ -338,18 +296,12 @@ func (v *Visitor) loginHandler() error {
 				OperatorUid:  v.visitorUserUid,
 				OperatorName: v.visitorUserName,
 				Members:      otherKefus,
-				GroupNo:      v.genBindGroupNo(),
+				GroupNo:      v.req.ChannelID,
 			})
 			if err != nil {
 				return err
 			}
 		}
-	}
-
-	//更新数据
-	if err = v.db.Update(v.visitorModel); err != nil {
-		v.Error("更新游客信息错误", zap.Error(err))
-		return err
 	}
 
 	return nil
@@ -362,47 +314,23 @@ func (v *Visitor) registerHandler(c *wkhttp.Context) error {
 		v.Error("分配客服出现错误", zap.Error(err))
 		return err
 	}
-	err = v.db.Insert(v.visitorModel)
-	if err != nil {
-		v.Error("新建游客信息错误", zap.Error(err))
-		return err
-	}
-
-	//取出该visitor的uid
-	visitorModel, err := v.db.QueryByUUID(v.visitorModel.Uuid)
-	if err != nil {
-		v.Error("查询游客信息错误", zap.Error(err))
-		return err
-	}
-	if visitorModel == nil {
-		v.Error("未找到刚注册的游客信息,uuid: " + v.visitorModel.Uuid)
-		return errors.New("visitor does not exist")
-	}
-
-	//修改用户名
-	v.visitorModel = visitorModel
-	v.visitorModel.Name = fmt.Sprintf("%s-%d", v.visitorModel.Name, v.visitorModel.Id)
 
 	//开启一个群聊频道，进行交流
-	_, err = v.group.VisitorGroupCreate(&group.VisitorGroupCreateReq{
+	g, err := v.group.VisitorGroupCreate(&group.VisitorGroupCreateReq{
 		CreateUid: v.visitorUserUid,
-		Name:      v.visitorModel.Name,
+		Name:      v.info.Name,
 		Members: []string{
 			kefu.UID,
 		},
-		GroupNo: v.genBindGroupNo(),
+		GroupNo: v.req.ChannelID,
 		Notice:  v.genVisitorInfo(),
 	})
+
 	if err != nil {
 		v.Error("创建游客群频道失败！", zap.Error(err))
 		return err
 	}
-
-	//更新
-	if err = v.db.Update(v.visitorModel); err != nil {
-		v.Error("更新游客信息失败！", zap.Error(err))
-		return err
-	}
+	v.info.Id = g.Id
 
 	if err = v.RegisterIMToken(); err != nil {
 		return err
@@ -412,10 +340,10 @@ func (v *Visitor) registerHandler(c *wkhttp.Context) error {
 }
 
 func (v *Visitor) RegisterIMToken() error {
-	// 不用换成token，凭uuid即可登录
+	v.imToken = util.GenerUUID()
 	imResp, err := v.ctx.UpdateIMToken(config.UpdateIMTokenReq{
 		UID:         v.visitorUserUid,
-		Token:       v.visitorModel.Uuid,
+		Token:       v.imToken,
 		DeviceFlag:  config.DeviceFlag(config.Web), //注册设备的标记 0.app 1.web 2.PC
 		DeviceLevel: config.DeviceLevelSlave,
 	})
@@ -443,7 +371,7 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 	}
 
 	//查找聊天群里所有的客服
-	members, err := v.groupDB.QueryMembersWithGroupNo(v.genBindGroupNo())
+	members, err := v.groupDB.QueryMembersWithGroupNo(v.req.ChannelID)
 	if err != nil {
 		v.Error("查询群成员错误", zap.Error(err))
 		return nil, err
@@ -622,61 +550,19 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 	return user, nil
 }
 
-// 创建游客用户数据
-func (v *Visitor) createUserModel() *user.Model {
-	return &user.Model{
-		AppID:             "",
-		UID:               v.visitorUserUid,
-		Name:              v.visitorUserName,
-		Username:          "",
-		Email:             "",
-		Password:          util.GenerUUID(),
-		Category:          "visitor",
-		Sex:               0,
-		ShortNo:           "20001",
-		ShortStatus:       0,
-		Zone:              "0086",
-		Phone:             "13100000000",
-		ChatPwd:           "",
-		LockScreenPwd:     "",
-		LockAfterMinute:   0,
-		DeviceLock:        0,
-		SearchByPhone:     0,
-		SearchByShort:     0,
-		NewMsgNotice:      0,
-		MsgShowDetail:     0,
-		VoiceOn:           0,
-		ShockOn:           0,
-		OfflineProtection: 0,
-		Version:           0,
-		Status:            1,
-		Vercode:           fmt.Sprintf("%s@%d", util.GenerUUID(), common.User),
-		QRVercode:         fmt.Sprintf("%s@%d", util.GenerUUID(), common.QRCode),
-		IsUploadAvatar:    0,
-		Role:              "visitor",
-		Robot:             0,
-		MuteOfApp:         0,
-		IsDestroy:         0,
-		WXOpenid:          "",
-		WXUnionid:         "",
-		GiteeUID:          "",
-		GithubUID:         "",
-	}
-}
-
 func (v *Visitor) genVisitorInfo() string {
 	var sentContent string
-	sentContent = fmt.Sprintf("来访游客id: %d", v.visitorModel.Id)
-	sentContent = fmt.Sprintf("%s\nip: %s", sentContent, v.visitorModel.Ip)
-	sentContent = fmt.Sprintf("%s\n时间: %s", sentContent, time.Now().UTC().Format("2006-01-02 15:04:05"))
-	sentContent = fmt.Sprintf("%s\n来源: %s", sentContent, v.visitorModel.Referer)
-	sentContent = fmt.Sprintf("%s\n地区: %s", sentContent, v.visitorModel.Region)
-	sentContent = fmt.Sprintf("%s\n城市: %s", sentContent, v.visitorModel.City)
-	sentContent = fmt.Sprintf("%s\n平台: %s", sentContent, v.visitorModel.Platform)
-	sentContent = fmt.Sprintf("%s\n设备: %s", sentContent, v.visitorModel.Device)
-	sentContent = fmt.Sprintf("%s\n系统: %s", sentContent, v.visitorModel.Os)
-	sentContent = fmt.Sprintf("%s\n浏览器: %s", sentContent, v.visitorModel.Browser)
-	sentContent = fmt.Sprintf("%s\n语言: %s", sentContent, v.visitorModel.Language)
+	sentContent = fmt.Sprintf("来访游客id: %d", v.info.Id)
+	sentContent = fmt.Sprintf("%s\nip: %s", sentContent, v.info.Ip)
+	sentContent = fmt.Sprintf("%s\n时间: %s", sentContent, time.Now().Format("2006-01-02 15:04:05"))
+	sentContent = fmt.Sprintf("%s\n来源: %s", sentContent, v.info.Referer)
+	sentContent = fmt.Sprintf("%s\n地区: %s", sentContent, v.info.Region)
+	sentContent = fmt.Sprintf("%s\n城市: %s", sentContent, v.info.City)
+	sentContent = fmt.Sprintf("%s\n平台: %s", sentContent, v.info.Platform)
+	sentContent = fmt.Sprintf("%s\n设备: %s", sentContent, v.info.Device)
+	sentContent = fmt.Sprintf("%s\n系统: %s", sentContent, v.info.Os)
+	sentContent = fmt.Sprintf("%s\n浏览器: %s", sentContent, v.info.Browser)
+	sentContent = fmt.Sprintf("%s\n语言: %s", sentContent, v.info.Language)
 	return sentContent
 }
 
@@ -687,7 +573,7 @@ func (v *Visitor) sendVisitorInfo() {
 	//发送游客的来访信息给客服
 	err := v.ctx.SendMessage(&config.MsgSendReq{
 		FromUID:     v.visitorUserUid,
-		ChannelID:   v.genBindGroupNo(),
+		ChannelID:   v.req.ChannelID,
 		ChannelType: common.ChannelTypeGroup.Uint8(),
 		Payload: []byte(util.ToJson(map[string]interface{}{
 			"content": sentContent,
@@ -704,14 +590,14 @@ func (v *Visitor) sendVisitorInfo() {
 
 // 发送上线信息到群频道，冷却时间30分钟
 func (v *Visitor) sendOnlineMsgToKefu() {
-	// 检查距离上一次登录时间是否已经达到30分钟
-	if time.Since(v.lastLoginAt).Minutes() < 30 {
-		return
-	}
+	// // 检查距离上一次登录时间是否已经达到30分钟
+	// if time.Since(v.lastLoginAt).Minutes() < 30 {
+	// 	return
+	// }
 	//发送游客的上线信息给客服
 	err := v.ctx.SendMessage(&config.MsgSendReq{
 		FromUID:     v.visitorUserUid,
-		ChannelID:   v.genBindGroupNo(),
+		ChannelID:   v.req.ChannelID,
 		ChannelType: common.ChannelTypeGroup.Uint8(),
 		Payload: []byte(util.ToJson(map[string]interface{}{
 			"content": "已上線",
@@ -724,89 +610,6 @@ func (v *Visitor) sendOnlineMsgToKefu() {
 	if err != nil {
 		v.Error("发送游客来访消息失败", zap.Error(err))
 	}
-}
-
-func (v *Visitor) GenVisitorUserUID() string {
-	return v.ctx.GetConfig().VisitorUIDPrefix + util.GenerUUID()
-}
-
-var initMark = false
-
-func (v *Visitor) InitVisitorUser() error {
-	if initMark {
-		return nil
-	}
-	initMark = true
-	userModel, err := v.user.Db().QueryByUID(v.visitorUserUid)
-	if err != nil {
-		v.Error("更新用戶信息错误", zap.Error(err))
-		return err
-	}
-	if userModel != nil {
-		// 已存在，无需创建，直接返回
-		return nil
-	}
-	userModel = v.createUserModel()
-	userModel.Robot = 1
-	//插入数据库
-	tx := v.user.Db().Tx()
-	defer func() {
-		if err := recover(); err != nil {
-			v.Error(fmt.Sprintf("出现了恐慌: %s", err))
-			tx.Rollback()
-			panic(err)
-		}
-	}()
-	// 事务处理
-	var txEvent = func() error {
-		if err := v.user.Db().InsertTx(userModel, tx); err != nil {
-			v.Error("注册visitor用户失败", zap.Error(err))
-			return err
-		}
-
-		//发送用户注册事件
-		eventID, err := v.ctx.EventBegin(&wkevent.Data{
-			Event: event.EventUserRegister,
-			Type:  wkevent.Message,
-			Data: map[string]interface{}{
-				"uid": userModel.UID,
-			},
-		}, tx)
-		if err != nil {
-			v.Error("开启事件失败！", zap.Error(err))
-			return err
-		}
-
-		//回调事件
-		if err = tx.Commit(); err != nil {
-			// tx.Rollback()
-			// v.Error("数据库事务提交失败", zap.Error(err))
-			return err
-		}
-		v.ctx.EventCommit(eventID)
-		return nil
-	}
-	if err := txEvent(); err != nil {
-		tx.Rollback()
-		v.Error("数据库事务提交失败", zap.Error(err))
-		return err
-	}
-
-	if v.ctx.GetConfig().ShortNo.NumOn {
-		err = v.user.CommonService().SetShortnoUsed(userModel.ShortNo, "user")
-		if err != nil {
-			v.Error("设置短编号被使用失败！", zap.Error(err), zap.String("shortNo", userModel.ShortNo))
-			return err
-		}
-	}
-	return nil
-}
-
-func (v *Visitor) genBindGroupNo() string {
-	md5Hash := md5.Sum([]byte(v.visitorModel.Uuid))
-	md5String := hex.EncodeToString(md5Hash[:])
-	// 存在不唯一性，但可能性很小，要是遇到了，可以去买彩票了
-	return md5String
 }
 
 // func (v *Visitor) getOnlineMemberWithGroupNo(groupNo string) ([]string, error) {
@@ -876,7 +679,7 @@ func (v *Visitor) kefuIsOnline(uid string) (bool, error) {
 			return true, nil
 		}
 		// 则根据 reset 决定是否分配新的客服
-		if !v.restKefu {
+		if !v.req.RestKefu {
 			// 如果不重新分配，则返回原客服
 			return true, nil
 		}

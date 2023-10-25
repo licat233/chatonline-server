@@ -12,7 +12,7 @@ cd $current_path
 
 git add .
 git commit -m "update" --no-verify
-git push origin1 v2
+git push origin1 v3
 
 # git checkout --orphan latest_branch
 # git add -A
