@@ -207,11 +207,10 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 			ServerError(c)
 			return
 		}
-		isNewVisitor = v.visitor == nil
 	}
 
 	//如果不是新用户，则查看自己的群是否存在
-	if !isNewVisitor {
+	if v.visitor != nil {
 		channelId := v.genChannelID()
 		// 同时检查其绑定的group是否存在
 		group, err := v.groupDB.QueryGroupWithGroupNo(channelId)
@@ -228,10 +227,9 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 				ServerError(c)
 				return
 			}
-			//如果自己不在里面，则设为新游客
-			if !exist {
-				isNewVisitor = true
-			} else {
+			//如果自己在里面，则设为老游客
+			if exist {
+				isNewVisitor = false
 				//否则记录channel_uid
 				v.channelID = channelId
 				//顺便检查一下群名称是否正确
