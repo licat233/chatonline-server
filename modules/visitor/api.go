@@ -668,7 +668,7 @@ func (v *Visitor) genVisitorInfo() string {
 	var sentContent string
 	sentContent = fmt.Sprintf("来访游客id: %d", v.visitorModel.Id)
 	sentContent = fmt.Sprintf("%s\nip: %s", sentContent, v.visitorModel.Ip)
-	sentContent = fmt.Sprintf("%s\n时间: %s", sentContent, time.Now().UTC().Format("2006-01-02 15:04:05"))
+	sentContent = fmt.Sprintf("%s\n时间: %s", sentContent, time.Now().Format("2006-01-02 15:04:05"))
 	sentContent = fmt.Sprintf("%s\n来源: %s", sentContent, v.visitorModel.Referer)
 	sentContent = fmt.Sprintf("%s\n地区: %s", sentContent, v.visitorModel.Region)
 	sentContent = fmt.Sprintf("%s\n城市: %s", sentContent, v.visitorModel.City)
