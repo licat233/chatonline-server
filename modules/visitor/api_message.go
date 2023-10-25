@@ -3,7 +3,6 @@ package visitor
 import (
 	"errors"
 
-	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/common"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/config"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/pkg/wkhttp"
 )
@@ -33,7 +32,7 @@ func (v *Visitor) syncChannelMessage(c *wkhttp.Context) {
 		LoginUID:        v.visitorUserUid,
 		DeviceUUID:      "",
 		ChannelID:       req.ChannelID,
-		ChannelType:     common.ChannelTypeGroup.Uint8(),
+		ChannelType:     CurrentChannelType.Uint8(),
 		StartMessageSeq: req.StartMessageSeq,
 		EndMessageSeq:   req.EndMessageSeq,
 		Limit:           req.Limit,

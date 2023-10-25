@@ -59,6 +59,8 @@ type Visitor struct {
 	kefu *user.Model
 }
 
+const CurrentChannelType = common.ChannelTypeGroup
+
 type Resp struct {
 	Data any `json:"data"`
 }
@@ -590,7 +592,7 @@ func (v *Visitor) sendVisitorInfo() {
 	err := v.ctx.SendMessage(&config.MsgSendReq{
 		FromUID:     v.visitorUserUid,
 		ChannelID:   v.req.ChannelID,
-		ChannelType: common.ChannelTypeGroup.Uint8(),
+		ChannelType: CurrentChannelType.Uint8(),
 		Payload: []byte(util.ToJson(map[string]interface{}{
 			"content": sentContent,
 			"type":    common.Tip,
@@ -625,7 +627,7 @@ func (v *Visitor) sendOnlineMsgToKefu() {
 	err = v.ctx.SendMessage(&config.MsgSendReq{
 		FromUID:     v.visitorUserUid,
 		ChannelID:   v.req.ChannelID,
-		ChannelType: common.ChannelTypeGroup.Uint8(),
+		ChannelType: CurrentChannelType.Uint8(),
 		Payload: []byte(util.ToJson(map[string]interface{}{
 			"content": "已上線",
 			"type":    common.Tip,
