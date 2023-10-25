@@ -35,3 +35,9 @@ func (d *DB) ExistMemberInGroup(uid string, groupNo string) (bool, error) {
 	_, err := d.session.Select("COUNT(*)").From("group_member").Where("group_no=? and uid=?", groupNo, uid).Limit(1).Load(&count)
 	return count != 0, err
 }
+
+// 修改群名称
+func (d *DB) UpdateGroupName(groupNo string, name string) error {
+	_, err := d.session.Update("group").Set("name", name).Where("group_no=?", groupNo).Exec()
+	return err
+}

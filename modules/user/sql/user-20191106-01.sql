@@ -32,7 +32,7 @@ create table `user`
   shock_on              smallint     not null default 1,                   -- 是否开启震动0.否1.是
   mute_of_app           smallint     not null default 0,                   -- app是否禁音（当pc登录的时候app可以设置禁音，当pc登录后有效）
   offline_protection    smallint     not null default 0,                   -- 离线保护，断网屏保
-  `version`    bigint     not null DEFAULT 0,                                -- 数据版本 
+  `version`    bigint     not null DEFAULT 0,                                -- 数据版本
   status smallint       not null DEFAULT 1,                                -- 用户状态 0.禁用 1.可用
   bench_no        VARCHAR(40)     not null default '',                     -- 性能测试批次号，性能测试幂等用
   created_at timeStamp     not null DEFAULT CURRENT_TIMESTAMP, -- 创建时间
@@ -44,7 +44,7 @@ CREATE UNIQUE INDEX short_no_udx on `user` (short_no);
 -- -- +migrate StatementBegin
 -- CREATE TRIGGER user_updated_at
 --   BEFORE UPDATE
---   ON `user` for each row 
+--   ON `user` for each row
 --   BEGIN
 --     set NEW.updated_at = NOW();
 --   END;
@@ -78,7 +78,7 @@ CREATE  INDEX uid_idx on `user_setting` (uid);
 -- -- +migrate StatementBegin
 -- CREATE TRIGGER user_setting_updated_at
 --   BEFORE UPDATE
---   ON `user_setting` for each row 
+--   ON `user_setting` for each row
 --   BEGIN
 --     set NEW.updated_at = NOW();
 --   END;
@@ -89,10 +89,10 @@ CREATE  INDEX uid_idx on `user_setting` (uid);
 create table `device`
 (
   id                integer             not null primary key AUTO_INCREMENT,
-  uid               VARCHAR(40)         not null default '',                      -- 设备所属用户uid                     
-  device_id         VARCHAR(40)         not null default '',                      -- 设备唯一ID          
-  device_name       VARCHAR(100)        not null default '',                      -- 设备名称                  
-  device_model      VARCHAR(100)        not null default '',                      -- 设备型号              
+  uid               VARCHAR(40)         not null default '',                      -- 设备所属用户uid
+  device_id         VARCHAR(40)         not null default '',                      -- 设备唯一ID
+  device_name       VARCHAR(100)        not null default '',                      -- 设备名称
+  device_model      VARCHAR(100)        not null default '',                      -- 设备型号
   last_login        integer             not null DEFAULT 0,                       -- 最后一次登录时间(时间戳 10位)
   created_at        timeStamp           not null DEFAULT CURRENT_TIMESTAMP,       -- 创建时间
   updated_at        timeStamp           not null DEFAULT CURRENT_TIMESTAMP        -- 更新时间
@@ -105,14 +105,14 @@ CREATE INDEX device_device_id on `device` (device_id);
 create table `friend`
 (
   id                integer               not null primary key AUTO_INCREMENT,
-  uid               VARCHAR(40)           not null default '' comment '用户UID',       
-  to_uid            VARCHAR(40)           not null default '' comment '好友uid',                        
-  remark            varchar(100)          not null default '' comment '对好友的备注 TODO: 此字段不再使用，已经迁移到user_setting表', 
-  flag              smallint              not null default 0 comment '好友标示', 
+  uid               VARCHAR(40)           not null default '' comment '用户UID',
+  to_uid            VARCHAR(40)           not null default '' comment '好友uid',
+  remark            varchar(100)          not null default '' comment '对好友的备注 TODO: 此字段不再使用，已经迁移到user_setting表',
+  flag              smallint              not null default 0 comment '好友标示',
   `version`           bigint                not null default 0 comment '版本号',
-  vercode           VARCHAR(100)          not null default '' comment '验证码 加好友来源',   
-  source_vercode    varchar(100)          not null default '' comment '好友来源',      
-  is_deleted        smallint              not null default 0 comment '是否已删除', 
+  vercode           VARCHAR(100)          not null default '' comment '验证码 加好友来源',
+  source_vercode    varchar(100)          not null default '' comment '好友来源',
+  is_deleted        smallint              not null default 0 comment '是否已删除',
   is_alone          smallint              not null default 0 comment  '单项好友',
   initiator         smallint              not null default 0 comment '加好友发起方',
   created_at        timeStamp             not null DEFAULT CURRENT_TIMESTAMP comment '创建时间',
@@ -122,7 +122,7 @@ create table `friend`
 -- -- +migrate StatementBegin
 -- CREATE TRIGGER friend_updated_at
 --   BEFORE UPDATE
---   ON `friend` for each row 
+--   ON `friend` for each row
 --   BEGIN
 --    set NEW.updated_at = NOW();
 --   END;
@@ -138,4 +138,3 @@ CREATE TABLE IF NOT EXISTS login_log(
   created_at  timeStamp     not null DEFAULT CURRENT_TIMESTAMP comment '创建时间',
   updated_at  timeStamp     not null DEFAULT CURRENT_TIMESTAMP comment '更新时间'
 ) CHARACTER SET utf8mb4;
-

@@ -52,8 +52,6 @@ type Visitor struct {
 
 	info *Info //访客信息
 
-	imToken string //游客登录im的token
-
 	LoginInterval time.Duration //登录间隔时间，在此时间内，不会发送上线消息
 
 	kefu *user.Model
@@ -72,9 +70,9 @@ type visitorLoginResp struct {
 }
 
 type visitorLoginReq struct {
-	Platform    string `json:"platform"`    //客户端平台
-	Referer     string `json:"referer"`     //来源网站
-	ProjectUuid string `json:"project_uid"` //对接的项目uid
+	Platform   string `json:"platform"`    //客户端平台
+	Referer    string `json:"referer"`     //来源网站
+	ProjectUid string `json:"project_uid"` //对接的项目uid
 	// IMToken     string `json:"im_token"`    //im_token，校验是否正确，可为空，当为空时，以新用户身份登录
 	ChannelID string `json:"channel_uid"` //聊天频道ID，可为空，当为空时，以新用户身份登录
 	RestKefu  bool   `json:"reset_kefu"`  //是否重新分配客服, 默认false，true时当客服不在线时，将切换给其他客服
@@ -87,7 +85,7 @@ func (r *visitorLoginReq) VisitorLoginCheck() error {
 	if strings.TrimSpace(r.Referer) == "" {
 		return errors.New("referer cannot be empty")
 	}
-	if strings.TrimSpace(r.ProjectUuid) == "" {
+	if strings.TrimSpace(r.ProjectUid) == "" {
 		return errors.New("project_uid cannot be empty")
 	}
 	return nil
@@ -106,7 +104,6 @@ func New(ctx *config.Context) *Visitor {
 		visitorUserName:          "客服系统",
 		req:                      nil,
 		info:                     nil,
-		imToken:                  "",
 		LoginInterval:            time.Minute * 30,
 		kefu:                     nil,
 	}
@@ -172,18 +169,9 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		return
 	}
 
-	// 名字
-	name := "未知地區-訪客"
-	if address.Country != "" {
-		name = address.Country
-		if address.City != "" && name != address.City {
-			name = fmt.Sprintf("%s-%s", name, address.City)
-		}
-	}
-
 	// 查验项目uuid是否存在
 	// 注意：这里的项目以群组的形式存在，直接查询是否存在该群组
-	v.currentProjectGroupModel, err = v.groupDB.QueryWithGroupNo(req.ProjectUuid)
+	v.currentProjectGroupModel, err = v.groupDB.QueryWithGroupNo(req.ProjectUid)
 	if err != nil {
 		v.Error("查询群信息错误", zap.Error(err))
 		c.ResponseErrorf("query project error！", err)
@@ -220,7 +208,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	}
 
 	v.info = &Info{
-		Name:     name,
+		Name:     "访客",
 		Ip:       ip,
 		Referer:  referer,
 		Region:   address.Country,
@@ -261,16 +249,19 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		v.sendOnlineMsgToKefu()
 	}
 	//使用redis记录登录时间
-	err = v.ctx.NewRedisCache().SetAndExpire(v.redisLastLoginTimeKey(), time.Now().String(), v.LoginInterval)
+	err = v.ctx.Cache().SetAndExpire(v.redisLastLoginTimeKey(), time.Now().String(), v.LoginInterval)
 	if err != nil {
 		v.Error("redis设置visitor登录时间出错", zap.Error(err))
 	}
-	if v.imToken == "" {
-		v.imToken = MD5(MD5(v.req.ChannelID))
+	token, err := v.GenVisitorIMToken()
+	if err != nil {
+		v.Error("redis设置visitor登录时间出错", zap.Error(err))
+		c.ResponseErrorWithStatus(errors.New("gen token fail"), 500)
+		return
 	}
 	//返回凭证，游客凭此凭证登录即可
 	loginInfo := &visitorLoginResp{
-		IMToken:   v.imToken,
+		IMToken:   token,
 		ChannelID: v.req.ChannelID,
 		UserUid:   v.visitorUserUid,
 	}
@@ -348,20 +339,22 @@ func (v *Visitor) registerHandler(c *wkhttp.Context) error {
 		v.Error("创建游客群频道失败！", zap.Error(err))
 		return err
 	}
-	v.info.Id = g.Id
 
-	if err = v.RegisterIMToken(); err != nil {
+	v.info.Id = g.Id
+	v.info.Name = fmt.Sprintf("%s的访客%d", v.currentProjectGroupModel.Name, g.Id)
+	err = v.groupDB.UpdateGroupName(g.GroupNo, v.info.Name)
+	if err != nil {
+		v.Error("修改群昵称失败！", zap.Error(err))
 		return err
 	}
 
 	return nil
 }
 
-func (v *Visitor) RegisterIMToken() error {
-	v.imToken = MD5(MD5(v.req.ChannelID))
+func (v *Visitor) RegisterIMToken(token string) (err error) {
 	imResp, err := v.ctx.UpdateIMToken(config.UpdateIMTokenReq{
 		UID:         v.visitorUserUid,
-		Token:       v.imToken,
+		Token:       token,
 		DeviceFlag:  config.DeviceFlag(config.Web), //注册设备的标记 0.app 1.web 2.PC
 		DeviceLevel: config.DeviceLevelSlave,
 	})
@@ -373,6 +366,30 @@ func (v *Visitor) RegisterIMToken() error {
 		return errors.New("this account has been banned")
 	}
 	return nil
+}
+
+func (v *Visitor) GenVisitorIMToken() (string, error) {
+	flag := config.Web
+	key := fmt.Sprintf("%s%d%s", v.ctx.GetConfig().Cache.UIDTokenCachePrefix, flag, v.visitorUserUid)
+	token, err := v.ctx.Cache().Get(key)
+	if err != nil {
+		v.Error("获取visitor的token错误", zap.Error(err))
+		return "", errors.New("获取visitor的token错误")
+	}
+	if token != "" {
+		return token, nil
+	}
+	token = util.GenerUUID()
+	err = v.RegisterIMToken(token)
+	if err != nil {
+		return "", errors.New("注册im token失败！")
+	}
+	err = v.ctx.Cache().SetAndExpire(key, token, v.ctx.GetConfig().Cache.TokenExpire)
+	if err != nil {
+		v.Error("设置token缓存失败！", zap.Error(err))
+		return "", errors.New("设置token缓存失败！")
+	}
+	return token, nil
 }
 
 /*
@@ -613,7 +630,7 @@ func (v *Visitor) redisLastLoginTimeKey() string {
 // 发送上线信息到群频道，冷却时间30分钟
 func (v *Visitor) sendOnlineMsgToKefu() {
 	key := v.redisLastLoginTimeKey()
-	redisCli := v.ctx.NewRedisCache()
+	redisCli := v.ctx.Cache()
 	value, err := redisCli.Get(key)
 	if err != nil {
 		v.Error("获取redis值错误", zap.Error(err))
