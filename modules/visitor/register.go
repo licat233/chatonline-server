@@ -101,13 +101,12 @@ func (v *Visitor) registerHandler(c *wkhttp.Context) error {
 	groupName := v.genGroupName()
 	//开启一个群聊频道，进行交流
 	_, err = v.group.VisitorGroupCreate(&group.VisitorGroupCreateReq{
-		CreateUid: v.visitor.UID,
-		Name:      groupName,
-		Members: []string{
-			v.kefu.UID,
-		},
-		GroupNo: v.channelID,
-		Notice:  v.genVisitorInfo(),
+		CreateUid:  v.visitor.UID,
+		CreateName: OperatorName,
+		GroupName:  groupName,
+		GroupNo:    v.channelID,
+		Notice:     v.genVisitorInfo(),
+		Members:    []string{v.kefu.UID},
 	})
 
 	if err != nil {

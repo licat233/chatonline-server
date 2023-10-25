@@ -15,17 +15,18 @@ import (
 )
 
 type VisitorGroupCreateReq struct {
-	CreateUid string   `json:"create_uid"` // 创建者uid
-	Name      string   `json:"name"`       // 群名
-	Members   []string `json:"members"`    // 成员uid
-	GroupNo   string   `json:"group_no"`   // 群编号，若不存在，则使用uuid生成
-	Notice    string   `json:"notice"`     // 群公告
+	CreateUid  string   `json:"create_uid"`  // 创建者uid
+	CreateName string   `json:"create_name"` // 创建者名称
+	GroupName  string   `json:"group_name"`  // 群名
+	GroupNo    string   `json:"group_no"`    // 群编号，若不存在，则使用uuid生成
+	Notice     string   `json:"notice"`      // 群公告
+	Members    []string `json:"members"`     // 成员uid
 }
 
 // 创建一个游客聊天群
 func (g *Group) VisitorGroupCreate(req *VisitorGroupCreateReq) (*Model, error) {
 	creator := req.CreateUid
-	creatorName := req.Name
+	creatorName := req.CreateName
 	creatorUser, err := g.userDB.QueryByUID(req.CreateUid)
 	if err != nil {
 		g.Error("查询创建者信息失败！", zap.Error(err))
@@ -47,8 +48,7 @@ func (g *Group) VisitorGroupCreate(req *VisitorGroupCreateReq) (*Model, error) {
 	if memberUserModels == nil {
 		return nil, errors.New("成员用户信息不存在！")
 	}
-	groupName := req.Name
-
+	groupName := req.CreateName
 	groupNo := req.GroupNo
 	if groupNo == "" {
 		groupNo = util.GenerUUID()

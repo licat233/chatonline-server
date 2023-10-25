@@ -57,6 +57,7 @@ type Visitor struct {
 }
 
 const CurrentChannelType = common.ChannelTypeGroup
+const OperatorName = "system"
 
 type Resp struct {
 	Data any `json:"data"`

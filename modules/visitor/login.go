@@ -33,7 +33,7 @@ func (v *Visitor) loginHandler() error {
 	if !hasKefu {
 		err = v.group.VisitorMemberAdd(&group.VisitorMemberAddReq{
 			OperatorUid:  v.visitor.UID,
-			OperatorName: "系统",
+			OperatorName: OperatorName,
 			Members: []string{
 				v.kefu.UID,
 			},
@@ -45,7 +45,7 @@ func (v *Visitor) loginHandler() error {
 		if len(otherKefus) != 0 {
 			err = v.group.VisitorMemberRemove(&group.VisitorMemberRemoveReq{
 				OperatorUid:  v.visitor.UID,
-				OperatorName: "系统",
+				OperatorName: OperatorName,
 				Members:      otherKefus,
 				GroupNo:      v.channelID,
 			})
