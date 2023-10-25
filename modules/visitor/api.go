@@ -73,8 +73,9 @@ type visitorLoginReq struct {
 	Platform    string `json:"platform"`    //客户端平台
 	Referer     string `json:"referer"`     //来源网站
 	ProjectUuid string `json:"project_uid"` //对接的项目uid
-	ChannelID   string `json:"channel_uid"` //聊天频道ID，可为空，当为空时，以新用户身份登录
-	RestKefu    bool   `json:"reset_kefu"`  //是否重新分配客服, 默认false，true时当客服不在线时，将切换给其他客服
+	// IMToken     string `json:"im_token"`    //im_token，校验是否正确，可为空，当为空时，以新用户身份登录
+	ChannelID string `json:"channel_uid"` //聊天频道ID，可为空，当为空时，以新用户身份登录
+	RestKefu  bool   `json:"reset_kefu"`  //是否重新分配客服, 默认false，true时当客服不在线时，将切换给其他客服
 }
 
 func (r *visitorLoginReq) VisitorLoginCheck() error {
@@ -237,8 +238,12 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		}
 		go v.sendOnlineMsgToKefu()
 	}
+	if v.imToken == "" {
+		v.imToken = MD5(MD5(v.req.ChannelID))
+	}
 	//返回凭证，游客凭此凭证登录即可
 	loginInfo := &visitorLoginResp{
+		IMToken:   v.imToken,
 		ChannelID: v.req.ChannelID,
 		UserUid:   v.visitorUserUid,
 	}
@@ -340,7 +345,7 @@ func (v *Visitor) registerHandler(c *wkhttp.Context) error {
 }
 
 func (v *Visitor) RegisterIMToken() error {
-	v.imToken = util.GenerUUID()
+	v.imToken = MD5(MD5(v.req.ChannelID))
 	imResp, err := v.ctx.UpdateIMToken(config.UpdateIMTokenReq{
 		UID:         v.visitorUserUid,
 		Token:       v.imToken,
