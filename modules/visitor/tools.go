@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -333,4 +334,27 @@ func MD5(s string) string {
 	md5Hash := md5.Sum([]byte(s))
 	md5String := hex.EncodeToString(md5Hash[:])
 	return md5String
+}
+
+func IsLocalLink(link string) bool {
+	parsedURL, err := url.Parse(link)
+	if err != nil {
+		// fmt.Println("无法解析链接:", err)
+		//乱七八糟的字符串，肯定不是一个合格的链接，当作本地链接处理
+		return true
+	}
+
+	host := strings.ToLower(parsedURL.Host)
+
+	// 检查主机部分是否为 localhost、127.0.0.1 或空
+	if host == "localhost" || host == "127.0.0.1" || host == "" {
+		return true
+	}
+
+	// 检查链接是否以 http://localhost 或 http://127.0.0.1 开头
+	if strings.HasPrefix(link, "http://localhost") || strings.HasPrefix(link, "http://127.0.0.1") {
+		return true
+	}
+
+	return false
 }

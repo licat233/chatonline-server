@@ -138,6 +138,12 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 
 	// 获取referer
 	referer := req.Referer
+	//判断是本地开发时，发送过来的，且当前不是调试模式
+	if IsLocalLink(referer) && v.ctx.GetConfig().Mode != "debug" {
+		//则不允许登录
+		c.ResponseErrorWithStatus(errors.New("the requested data format is incorrect"), 403)
+		return
+	}
 	// 获取设备信息
 	ua := useragent.New(c.Context.Request.UserAgent())
 	// 如果是机器人
