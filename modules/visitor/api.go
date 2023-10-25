@@ -37,8 +37,6 @@ type Info struct {
 type Visitor struct {
 	ctx *config.Context
 	log.Log
-	// db *DB
-	// userDB  *user.DB
 	groupDB *group.DB
 
 	user    *user.User
@@ -56,7 +54,9 @@ type Visitor struct {
 
 	imToken string //游客登录im的token
 
-	LoginInterval time.Duration
+	LoginInterval time.Duration //登录间隔时间，在此时间内，不会发送上线消息
+
+	kefu *user.Model
 }
 
 type Resp struct {
@@ -106,6 +106,7 @@ func New(ctx *config.Context) *Visitor {
 		info:                     nil,
 		imToken:                  "",
 		LoginInterval:            time.Minute * 30,
+		kefu:                     nil,
 	}
 
 	return v
@@ -223,6 +224,19 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		Language: languages,
 	}
 
+	//分配一个客服出来
+	v.kefu, err = v.assignKefu()
+	if err != nil {
+		v.Error("分配客服出现错误", zap.Error(err))
+		c.ResponseErrorWithStatus(errors.New("error allocating customer service"), 500)
+		return
+	}
+	if v.kefu == nil {
+		v.Error("游客未分配到客服")
+		c.ResponseErrorWithStatus(errors.New("no available customer service"), 500)
+		return
+	}
+
 	if isNewVisitor {
 		err = v.registerHandler(c)
 		if err != nil {
@@ -263,15 +277,6 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 // 游客登录
 // 将游客绑定的用户进行登录操作
 func (v *Visitor) loginHandler() error {
-	//分配一个客服出来
-	kefu, err := v.assignKefu()
-	if err != nil {
-		return err
-	}
-	if kefu == nil {
-		v.Error("游客未分配到客服")
-		return errors.New("visitor not assigned to customer service")
-	}
 	//查询咨询群里的会员
 	members, err := v.groupDB.QueryMembersWithGroupNo(v.req.ChannelID)
 	if err != nil {
@@ -281,7 +286,7 @@ func (v *Visitor) loginHandler() error {
 	var otherKefus []string
 	var hasKefu bool
 	for _, m := range members {
-		if m.UID == kefu.UID {
+		if m.UID == v.kefu.UID {
 			hasKefu = true
 		} else {
 			otherKefus = append(otherKefus, m.UID)
@@ -294,7 +299,7 @@ func (v *Visitor) loginHandler() error {
 			OperatorUid:  v.visitorUserUid,
 			OperatorName: v.visitorUserName,
 			Members: []string{
-				kefu.UID,
+				v.kefu.UID,
 			},
 			GroupNo: v.req.ChannelID,
 		})
@@ -319,18 +324,13 @@ func (v *Visitor) loginHandler() error {
 
 // 创建游客
 func (v *Visitor) registerHandler(c *wkhttp.Context) error {
-	kefu, err := v.assignKefu()
-	if err != nil {
-		v.Error("分配客服出现错误", zap.Error(err))
-		return err
-	}
 	v.req.ChannelID = util.GenerUUID()
 	//开启一个群聊频道，进行交流
 	g, err := v.group.VisitorGroupCreate(&group.VisitorGroupCreateReq{
 		CreateUid: v.visitorUserUid,
 		Name:      v.info.Name,
 		Members: []string{
-			kefu.UID,
+			v.kefu.UID,
 		},
 		GroupNo: v.req.ChannelID,
 		Notice:  v.genVisitorInfo(),
@@ -370,7 +370,6 @@ func (v *Visitor) RegisterIMToken() error {
 /*
 *
 分配一个客服出来
-如果有客服：客服不在线则重新分配，否则不分配 - 此方案已废弃，如果切换客服会带来一系列问题，不好处理
 调用前，请检查好其绑定的group
 *
 */
