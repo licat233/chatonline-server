@@ -18,7 +18,7 @@ type VisitorGroupCreateReq struct {
 	CreateUid string   `json:"create_uid"` // 创建者uid
 	Name      string   `json:"name"`       // 群名
 	Members   []string `json:"members"`    // 成员uid
-	GroupNo   string   `json:"group_no"`   // 群编号，格式为 visitorUid-projectUid 的组合
+	GroupNo   string   `json:"group_no"`   // 群编号，格式为 visitorUid的md5值，以@ht结尾
 	Notice    string   `json:"notice"`     // 群公告
 }
 

@@ -14,6 +14,10 @@ RUN \
     mkdir -p /usr/share/zoneinfo/Asia && \
     ln -s /etc/localtime /usr/share/zoneinfo/Asia/Shanghai
 RUN echo "Asia/Shanghai" > /etc/timezone
+
+
+# RUN apk add tzdata
+
 ENV TZ=Asia/Shanghai
 
 WORKDIR /home

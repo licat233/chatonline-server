@@ -67,12 +67,6 @@ func New(ctx *config.Context) *Visitor {
 		currentProjectUid: "",
 	}
 
-	// // 初始化访客账号
-	// if err := v.InitVisitorUser(); err != nil {
-	// 	v.Error("初始化visitor信息失败", zap.Error(err))
-	// 	panic(err)
-	// }
-
 	return v
 }
 
@@ -81,6 +75,7 @@ func (v *Visitor) Route(r *wkhttp.WKHttp) {
 	{
 		g.POST("/login", v.Login)
 		g.POST("/message/sync", v.syncChannelMessage)
+		g.GET("/test", v.Test)
 	}
 }
 
@@ -116,6 +111,13 @@ type visitorLoginResp struct {
 }
 
 func (v *Visitor) Login(c *wkhttp.Context) {
+	// 初始化访客账号，不需要
+	// if err := v.InitVisitorUser(); err != nil {
+	// 	initMark = false
+	// 	v.Error("初始化visitor信息失败", zap.Error(err))
+	// 	panic(err)
+	// }
+
 	var req visitorLoginReq
 	isEncrypt, err := UnmarshalReqData(c, &req)
 	if err != nil {
@@ -728,7 +730,13 @@ func (v *Visitor) GenVisitorUserUID() string {
 	return v.ctx.GetConfig().VisitorUIDPrefix + util.GenerUUID()
 }
 
+var initMark = false
+
 func (v *Visitor) InitVisitorUser() error {
+	if initMark {
+		return nil
+	}
+	initMark = true
 	userModel, err := v.user.Db().QueryByUID(v.visitorUserUid)
 	if err != nil {
 		v.Error("更新用戶信息错误", zap.Error(err))
@@ -784,16 +792,6 @@ func (v *Visitor) InitVisitorUser() error {
 		return err
 	}
 
-	_, err = v.ctx.UpdateIMToken(config.UpdateIMTokenReq{
-		UID:         userModel.UID,
-		Token:       v.visitorModel.Uuid,
-		DeviceFlag:  config.DeviceFlag(1), //注册设备的标记 0.手机 1.web 2.PC
-		DeviceLevel: config.DeviceLevelSlave,
-	})
-	if err != nil {
-		v.Error("更新IM的token失败！", zap.Error(err))
-		return err
-	}
 	if v.ctx.GetConfig().ShortNo.NumOn {
 		err = v.user.CommonService().SetShortnoUsed(userModel.ShortNo, "user")
 		if err != nil {
