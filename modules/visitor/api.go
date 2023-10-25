@@ -59,6 +59,37 @@ type Visitor struct {
 	imToken string //游客登录im的token
 }
 
+type Resp struct {
+	Data any `json:"data"`
+}
+
+type visitorLoginResp struct {
+	IMToken   string `json:"im_token"`    //游客登录im的token
+	ChannelID string `json:"channel_uid"` //聊天频道ID
+	UserUid   string `json:"user_uid"`    //游客绑定的user_uid
+}
+
+type visitorLoginReq struct {
+	Platform    string `json:"platform"`    //客户端平台
+	Referer     string `json:"referer"`     //来源网站
+	ProjectUuid string `json:"project_uid"` //对接的项目uid
+	ChannelID   string `json:"channel_uid"` //聊天频道ID，可为空，当为空时，以新用户身份登录
+	RestKefu    bool   `json:"reset_kefu"`  //是否重新分配客服, 默认false，true时当客服不在线时，将切换给其他客服
+}
+
+func (r *visitorLoginReq) VisitorLoginCheck() error {
+	if strings.TrimSpace(r.Platform) == "" {
+		return errors.New("platform cannot be empty")
+	}
+	if strings.TrimSpace(r.Referer) == "" {
+		return errors.New("referer cannot be empty")
+	}
+	if strings.TrimSpace(r.ProjectUuid) == "" {
+		return errors.New("project_uid cannot be empty")
+	}
+	return nil
+}
+
 func New(ctx *config.Context) *Visitor {
 	v := &Visitor{
 		ctx:                      ctx,
@@ -86,37 +117,6 @@ func (v *Visitor) Route(r *wkhttp.WKHttp) {
 		g.POST("/message/sync", v.syncChannelMessage)
 		g.GET("/test", v.Test)
 	}
-}
-
-type visitorLoginReq struct {
-	Platform    string `json:"platform"`    //客户端平台
-	Referer     string `json:"referer"`     //来源网站
-	ProjectUuid string `json:"project_uid"` //对接的项目uid
-	ChannelID   string `json:"channel_uid"` //聊天频道ID，可为空，当为空时，以新用户身份登录
-	RestKefu    bool   `json:"reset_kefu"`  //是否重新分配客服, 默认false，true时当客服不在线时，将切换给其他客服
-}
-
-func (r *visitorLoginReq) VisitorLoginCheck() error {
-	if strings.TrimSpace(r.Platform) == "" {
-		return errors.New("platform cannot be empty")
-	}
-	if strings.TrimSpace(r.Referer) == "" {
-		return errors.New("referer cannot be empty")
-	}
-	if strings.TrimSpace(r.ProjectUuid) == "" {
-		return errors.New("project_uid cannot be empty")
-	}
-	return nil
-}
-
-type Resp struct {
-	Data any `json:"data"`
-}
-
-type visitorLoginResp struct {
-	IMToken   string `json:"im_token"`    //游客登录im的token
-	ChannelID string `json:"channel_uid"` //聊天频道ID
-	UserUid   string `json:"user_uid"`    //游客绑定的user_uid
 }
 
 func (v *Visitor) Login(c *wkhttp.Context) {

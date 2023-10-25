@@ -22,6 +22,7 @@ type VisitorGroupCreateReq struct {
 	Notice    string   `json:"notice"`     // 群公告
 }
 
+// 创建一个游客聊天群
 func (g *Group) VisitorGroupCreate(req *VisitorGroupCreateReq) (*Model, error) {
 	creator := req.CreateUid
 	creatorName := req.Name
@@ -76,6 +77,7 @@ func (g *Group) VisitorGroupCreate(req *VisitorGroupCreateReq) (*Model, error) {
 
 	err = g.db.InsertTx(&Model{
 		GroupNo:             groupNo,
+		GroupType:           int(GroupTypeCommon),
 		Name:                groupName,
 		Creator:             creator,
 		Status:              GroupStatusNormal,
