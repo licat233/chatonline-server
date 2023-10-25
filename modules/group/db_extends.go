@@ -3,7 +3,7 @@ package group
 // QueryGroupByNo 查询某个群,通过groupNo
 func (d *DB) QueryGroupWithGroupNo(groupNo string) (*Model, error) {
 	var model *Model
-	_, err := d.session.Select("*").From("group").Where("`group_no`=?", groupNo).Load(&model)
+	_, err := d.session.Select("*").From("`group`").Where("group_no=?", groupNo).Load(&model)
 	return model, err
 }
 
