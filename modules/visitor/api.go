@@ -221,7 +221,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		}
 		//如果存在，还要检查自己是否在群里面
 		if group != nil {
-			exist, err := v.group.Service().ExistMember(v.channelID, v.visitor.UID)
+			exist, err := v.group.Service().ExistMember(group.GroupNo, v.visitor.UID)
 			if err != nil {
 				v.Error("查询是否在群内失败！", zap.Error(err))
 				ServerError(c)
@@ -231,11 +231,11 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 			if exist {
 				isNewVisitor = false
 				//否则记录channel_uid
-				v.channelID = channelId
+				v.channelID = group.GroupNo
 				//顺便检查一下群名称是否正确
 				if group.Name != v.genGroupName() {
 					//修改一下群名称
-					err = v.groupDB.UpdateGroupName(v.channelID, v.genGroupName())
+					err = v.groupDB.UpdateGroupName(group.GroupNo, v.genGroupName())
 					if err != nil {
 						v.Error("修改群昵称失败", zap.Error(err))
 						ServerError(c)
