@@ -48,7 +48,7 @@ func (g *Group) VisitorGroupCreate(req *VisitorGroupCreateReq) (*Model, error) {
 	if memberUserModels == nil {
 		return nil, errors.New("成员用户信息不存在！")
 	}
-	groupName := req.CreateName
+	groupName := req.GroupName
 	groupNo := req.GroupNo
 	if groupNo == "" {
 		groupNo = util.GenerUUID()
@@ -208,6 +208,14 @@ func (g *Group) VisitorGroupCreate(req *VisitorGroupCreateReq) (*Model, error) {
 	if err != nil {
 		g.Error("查询群信息失败！", zap.Error(err))
 		return nil, errors.New("查询群信息失败！")
+	}
+	//修改群昵称
+	if groupModel.Name != groupName {
+		err = g.db.UpdateGroupName(groupNo, groupName)
+		if err != nil {
+			g.Error("修改群名称失败！", zap.Error(err))
+			return nil, errors.New("修改群名称失败！")
+		}
 	}
 	return groupModel, nil
 }
