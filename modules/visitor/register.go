@@ -140,9 +140,10 @@ func (v *Visitor) createUserModel() (*user.Model, error) {
 	} else {
 		shortNo = util.Ten2Hex(time.Now().UnixNano())
 	}
+	uid := v.ctx.GetConfig().VisitorUIDPrefix + util.GenerUUID()
 	return &user.Model{
 		AppID:             "",
-		UID:               util.GenerUUID(),
+		UID:               uid,
 		Name:              v.info.Name,
 		Username:          "",
 		Email:             "",
