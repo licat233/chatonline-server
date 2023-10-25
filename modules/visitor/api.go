@@ -47,8 +47,6 @@ type Visitor struct {
 
 	currentProjectGroupModel *group.Model
 
-	lastLoginAt time.Time //[考虑删除]存储上一次登录时间，便于共享给其它函数使用
-
 	visitorUserUid  string //游客用户的通用uid
 	visitorUserName string //游客用户的通用uid
 
@@ -57,6 +55,8 @@ type Visitor struct {
 	info *Info //访客信息
 
 	imToken string //游客登录im的token
+
+	LoginInterval time.Duration
 }
 
 type Resp struct {
@@ -100,12 +100,12 @@ func New(ctx *config.Context) *Visitor {
 		message:                  message.New(ctx),
 		group:                    group.New(ctx),
 		currentProjectGroupModel: nil,
-		lastLoginAt:              time.Now(),
 		visitorUserUid:           ctx.GetConfig().VisitorUIDPrefix + "visitor",
 		visitorUserName:          "客服系统",
 		req:                      nil,
 		info:                     nil,
 		imToken:                  "",
+		LoginInterval:            time.Minute * 30,
 	}
 
 	return v
@@ -236,7 +236,12 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 			c.ResponseErrorf("visitor login error！", err)
 			return
 		}
-		go v.sendOnlineMsgToKefu()
+		v.sendOnlineMsgToKefu()
+	}
+	//使用redis记录登录时间
+	err = v.ctx.NewRedisCache().SetAndExpire(v.redisLastLoginTimeKey(), time.Now().String(), v.LoginInterval)
+	if err != nil {
+		v.Error("redis设置visitor登录时间出错", zap.Error(err))
 	}
 	if v.imToken == "" {
 		v.imToken = MD5(MD5(v.req.ChannelID))
@@ -586,7 +591,7 @@ func (v *Visitor) sendVisitorInfo() {
 			"type":    common.Tip,
 		})),
 		Header: config.MsgHeader{
-			RedDot: 1,
+			RedDot: 0,
 		},
 	})
 	if err != nil {
@@ -594,14 +599,25 @@ func (v *Visitor) sendVisitorInfo() {
 	}
 }
 
+func (v *Visitor) redisLastLoginTimeKey() string {
+	return fmt.Sprintf("visitorlastloginat:%s", v.req.ChannelID)
+}
+
 // 发送上线信息到群频道，冷却时间30分钟
 func (v *Visitor) sendOnlineMsgToKefu() {
-	// // 检查距离上一次登录时间是否已经达到30分钟
-	// if time.Since(v.lastLoginAt).Minutes() < 30 {
-	// 	return
-	// }
+	key := v.redisLastLoginTimeKey()
+	redisCli := v.ctx.NewRedisCache()
+	value, err := redisCli.Get(key)
+	if err != nil {
+		v.Error("获取redis值错误", zap.Error(err))
+	}
+	if value != "" {
+		//说明30分钟内登录过
+		//返回，不执行
+		return
+	}
 	//发送游客的上线信息给客服
-	err := v.ctx.SendMessage(&config.MsgSendReq{
+	err = v.ctx.SendMessage(&config.MsgSendReq{
 		FromUID:     v.visitorUserUid,
 		ChannelID:   v.req.ChannelID,
 		ChannelType: common.ChannelTypeGroup.Uint8(),
