@@ -34,9 +34,9 @@ echo "编译完成"
 # docker pull alpine:latest
 
 echo "已确保alpine镜像为最新"
-echo "开始编译docker镜像: licat/chatonline-server:v3"
+echo "开始编译docker镜像: licat/chatonline-server:v4"
 
-if ! docker buildx build --platform linux/amd64 --tag licat/chatonline-server:v3 . -f Dockerfile.lite; then
+if ! docker buildx build --platform linux/amd64 --tag licat/chatonline-server:v4 . -f Dockerfile.lite; then
     echo "docker镜像编译失败"
     exit 1
 fi
@@ -44,7 +44,7 @@ fi
 echo "docker镜像编译完成"
 echo "开始推送docker镜像到远程仓库"
 
-docker push licat/chatonline-server:v3
+docker push licat/chatonline-server:v4
 
 echo "推送完成"
 

@@ -4,7 +4,6 @@ package visitor
 import (
 	"errors"
 	"fmt"
-	"math/rand"
 	"strings"
 	"time"
 
@@ -45,16 +44,16 @@ type Visitor struct {
 
 	currentProjectGroupModel *group.Model
 
-	visitorUserUid  string //游客用户的通用uid
-	visitorUserName string //游客用户的通用uid
-
 	req *visitorLoginReq
 
 	info *Info //访客信息
 
 	LoginInterval time.Duration //登录间隔时间，在此时间内，不会发送上线消息
 
-	kefu *user.Model
+	kefu    *user.Model
+	visitor *user.Model
+
+	channelID string
 }
 
 const CurrentChannelType = common.ChannelTypeGroup
@@ -73,21 +72,21 @@ type visitorLoginReq struct {
 	Platform   string `json:"platform"`    //客户端平台
 	Referer    string `json:"referer"`     //来源网站
 	ProjectUid string `json:"project_uid"` //对接的项目uid
-	// IMToken     string `json:"im_token"`    //im_token，校验是否正确，可为空，当为空时，以新用户身份登录
-	ChannelID string `json:"channel_uid"` //聊天频道ID，可为空，当为空时，以新用户身份登录
-	RestKefu  bool   `json:"reset_kefu"`  //是否重新分配客服, 默认false，true时当客服不在线时，将切换给其他客服
+	UserUid    string `json:"user_uid"`    //游客所使用的user_uid
+	RestKefu   bool   `json:"reset_kefu"`  //是否重新分配客服, 默认false，true时当客服不在线时，将切换给其他客服
 }
 
 func (r *visitorLoginReq) VisitorLoginCheck() error {
 	if strings.TrimSpace(r.Platform) == "" {
-		return errors.New("platform cannot be empty")
+		return errors.New("the requested data format is incorrect1")
 	}
 	if strings.TrimSpace(r.Referer) == "" {
-		return errors.New("referer cannot be empty")
+		return errors.New("the requested data format is incorrect2")
 	}
 	if strings.TrimSpace(r.ProjectUid) == "" {
-		return errors.New("project_uid cannot be empty")
+		return errors.New("the requested data format is incorrect3")
 	}
+	r.UserUid = strings.TrimSpace(r.UserUid)
 	return nil
 }
 
@@ -100,12 +99,12 @@ func New(ctx *config.Context) *Visitor {
 		message:                  message.New(ctx),
 		group:                    group.New(ctx),
 		currentProjectGroupModel: nil,
-		visitorUserUid:           ctx.GetConfig().VisitorUIDPrefix + "visitor",
-		visitorUserName:          "客服系统",
 		req:                      nil,
 		info:                     nil,
 		LoginInterval:            time.Minute * 30,
 		kefu:                     nil,
+		visitor:                  nil,
+		channelID:                "",
 	}
 
 	return v
@@ -174,7 +173,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	v.currentProjectGroupModel, err = v.groupDB.QueryWithGroupNo(req.ProjectUid)
 	if err != nil {
 		v.Error("查询群信息错误", zap.Error(err))
-		c.ResponseErrorf("query project error！", err)
+		ServerError(c)
 		return
 	}
 	if v.currentProjectGroupModel == nil {
@@ -183,32 +182,8 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		return
 	}
 
-	// 默认为新游客
-	isNewVisitor := true
-
-	if req.ChannelID != "" {
-		// 同时检查其绑定的group是否存在
-		group, err := v.groupDB.QueryGroupWithGroupNo(req.ChannelID)
-		if err != nil {
-			v.Error("查询群信息错误", zap.Error(err))
-			c.ResponseErrorf("query group error！", err)
-			return
-		}
-		//如果存在，还要检查自己是否在群里面
-		if group != nil {
-			exist, err := v.group.Service().ExistMember(req.ChannelID, v.visitorUserUid)
-			if err != nil {
-				v.Error("查询是否在群内存在失败！", zap.Error(err))
-				c.ResponseError(errors.New("查询是否在群内存在失败！"))
-				return
-			}
-			//如果自己不在里面，表示该访客为新访客
-			isNewVisitor = !exist
-		}
-	}
-
 	v.info = &Info{
-		Name:     "访客",
+		Name:     fmt.Sprintf("%s的访客", v.currentProjectGroupModel.Name),
 		Ip:       ip,
 		Referer:  referer,
 		Region:   address.Country,
@@ -220,50 +195,109 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		Language: languages,
 	}
 
+	// 默认为新游客
+	isNewVisitor := true
+
+	//检查visitor是否存在
+	if req.UserUid != "" {
+		v.visitor, err = v.user.Db().QueryByUID(req.UserUid)
+		if err != nil {
+			v.Error("查询游客信息错误", zap.Error(err))
+			ServerError(c)
+			return
+		}
+		isNewVisitor = v.visitor == nil
+	}
+
+	//如果不是新用户，则查看自己的群是否存在
+	if !isNewVisitor {
+		channelId := v.genChannelID()
+		// 同时检查其绑定的group是否存在
+		group, err := v.groupDB.QueryGroupWithGroupNo(channelId)
+		if err != nil {
+			v.Error("查询群信息错误", zap.Error(err))
+			ServerError(c)
+			return
+		}
+		//如果存在，还要检查自己是否在群里面
+		if group != nil {
+			exist, err := v.group.Service().ExistMember(v.channelID, v.visitor.UID)
+			if err != nil {
+				v.Error("查询是否在群内失败！", zap.Error(err))
+				ServerError(c)
+				return
+			}
+			//如果自己不在里面，则设为新游客
+			if !exist {
+				isNewVisitor = true
+			} else {
+				//否则记录channel_uid
+				v.channelID = channelId
+				//顺便检查一下群名称是否正确
+				if group.Name != v.genGroupName() {
+					//修改一下群名称
+					err = v.groupDB.UpdateGroupName(v.channelID, v.genGroupName())
+					if err != nil {
+						v.Error("修改群昵称失败", zap.Error(err))
+						ServerError(c)
+						return
+					}
+				}
+			}
+		}
+	}
+
 	//分配一个客服出来
 	v.kefu, err = v.assignKefu()
 	if err != nil {
 		v.Error("分配客服出现错误", zap.Error(err))
-		c.ResponseErrorWithStatus(errors.New("error allocating customer service"), 500)
+		ServerError(c)
 		return
 	}
 	if v.kefu == nil {
 		v.Error("游客未分配到客服")
-		c.ResponseErrorWithStatus(errors.New("no available customer service"), 500)
+		ServerError(c)
 		return
 	}
 
 	if isNewVisitor {
 		err = v.registerHandler(c)
 		if err != nil {
-			c.ResponseErrorf("create visitor error！", err)
+			v.Error("游客注册失败", zap.Error(err))
+			ServerError(c)
 			return
 		}
-		go v.sendVisitorInfo()
+		// go v.sendVisitorInfo() //不用发了，公告有显示
 	} else {
 		err = v.loginHandler()
 		if err != nil {
-			c.ResponseErrorf("visitor login error！", err)
+			v.Error("游客登录失败", zap.Error(err))
+			ServerError(c)
 			return
 		}
 		v.sendOnlineMsgToKefu()
 	}
+
+	token, err := v.GenVisitorIMToken()
+	if err != nil {
+		v.Error("获取token失败", zap.Error(err))
+		ServerError(c)
+		return
+	}
+
 	//使用redis记录登录时间
 	err = v.ctx.Cache().SetAndExpire(v.redisLastLoginTimeKey(), time.Now().String(), v.LoginInterval)
 	if err != nil {
-		v.Error("redis设置visitor登录时间出错", zap.Error(err))
-	}
-	token, err := v.GenVisitorIMToken()
-	if err != nil {
-		v.Error("redis设置visitor登录时间出错", zap.Error(err))
-		c.ResponseErrorWithStatus(errors.New("gen token fail"), 500)
+		v.Error("redis保存登录时间失败", zap.Error(err))
+		ServerError(c)
 		return
 	}
+
 	//返回凭证，游客凭此凭证登录即可
 	loginInfo := &visitorLoginResp{
 		IMToken:   token,
-		ChannelID: v.req.ChannelID,
-		UserUid:   v.visitorUserUid,
+		ChannelID: v.channelID,
+		UserUid:   v.visitor.UID,
 	}
 	if isEncrypt {
 		encryptData := EncryptData(loginInfo)
@@ -273,87 +307,13 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	}
 }
 
-// 游客登录
-// 将游客绑定的用户进行登录操作
-func (v *Visitor) loginHandler() error {
-	//查询咨询群里的会员
-	members, err := v.groupDB.QueryMembersWithGroupNo(v.req.ChannelID)
-	if err != nil {
-		v.Error("查询群会员错误", zap.Error(err))
-		return err
-	}
-	var otherKefus []string
-	var hasKefu bool
-	for _, m := range members {
-		if m.UID == v.kefu.UID {
-			hasKefu = true
-		} else {
-			otherKefus = append(otherKefus, m.UID)
-		}
-	}
-
-	//查看该客服是否在群里，如果不再则拉入，并把其它客服踢出群
-	if !hasKefu {
-		err = v.group.VisitorMemberAdd(&group.VisitorMemberAddReq{
-			OperatorUid:  v.visitorUserUid,
-			OperatorName: v.visitorUserName,
-			Members: []string{
-				v.kefu.UID,
-			},
-			GroupNo: v.req.ChannelID,
-		})
-		if err != nil {
-			return err
-		}
-		if len(otherKefus) != 0 {
-			err = v.group.VisitorMemberRemove(&group.VisitorMemberRemoveReq{
-				OperatorUid:  v.visitorUserUid,
-				OperatorName: v.visitorUserName,
-				Members:      otherKefus,
-				GroupNo:      v.req.ChannelID,
-			})
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
+func (v *Visitor) genChannelID() string {
+	return NewUUID(v.visitor.UID, v.req.ProjectUid)
 }
 
-// 创建游客
-func (v *Visitor) registerHandler(c *wkhttp.Context) error {
-	v.req.ChannelID = util.GenerUUID()
-	//开启一个群聊频道，进行交流
-	g, err := v.group.VisitorGroupCreate(&group.VisitorGroupCreateReq{
-		CreateUid: v.visitorUserUid,
-		Name:      v.info.Name,
-		Members: []string{
-			v.kefu.UID,
-		},
-		GroupNo: v.req.ChannelID,
-		Notice:  v.genVisitorInfo(),
-	})
-
-	if err != nil {
-		v.Error("创建游客群频道失败！", zap.Error(err))
-		return err
-	}
-
-	v.info.Id = g.Id
-	v.info.Name = fmt.Sprintf("%s的访客%d", v.currentProjectGroupModel.Name, g.Id)
-	err = v.groupDB.UpdateGroupName(g.GroupNo, v.info.Name)
-	if err != nil {
-		v.Error("修改群昵称失败！", zap.Error(err))
-		return err
-	}
-
-	return nil
-}
-
-func (v *Visitor) RegisterIMToken(token string) (err error) {
+func (v *Visitor) registerIMToken(token string) (err error) {
 	imResp, err := v.ctx.UpdateIMToken(config.UpdateIMTokenReq{
-		UID:         v.visitorUserUid,
+		UID:         v.visitor.UID,
 		Token:       token,
 		DeviceFlag:  config.DeviceFlag(config.Web), //注册设备的标记 0.app 1.web 2.PC
 		DeviceLevel: config.DeviceLevelSlave,
@@ -370,7 +330,8 @@ func (v *Visitor) RegisterIMToken(token string) (err error) {
 
 func (v *Visitor) GenVisitorIMToken() (string, error) {
 	flag := config.Web
-	key := fmt.Sprintf("%s%d%s", v.ctx.GetConfig().Cache.UIDTokenCachePrefix, flag, v.visitorUserUid)
+	//获取缓存的token
+	key := fmt.Sprintf("%s%d%s", v.ctx.GetConfig().Cache.UIDTokenCachePrefix, flag, v.visitor.UID)
 	token, err := v.ctx.Cache().Get(key)
 	if err != nil {
 		v.Error("获取visitor的token错误", zap.Error(err))
@@ -380,7 +341,7 @@ func (v *Visitor) GenVisitorIMToken() (string, error) {
 		return token, nil
 	}
 	token = util.GenerUUID()
-	err = v.RegisterIMToken(token)
+	err = v.registerIMToken(token)
 	if err != nil {
 		return "", errors.New("注册im token失败！")
 	}
@@ -389,273 +350,8 @@ func (v *Visitor) GenVisitorIMToken() (string, error) {
 		v.Error("设置token缓存失败！", zap.Error(err))
 		return "", errors.New("设置token缓存失败！")
 	}
+
 	return token, nil
-}
-
-/*
-*
-分配一个客服出来
-调用前，请检查好其绑定的group
-*
-*/
-func (v *Visitor) assignKefu() (*user.Model, error) {
-	//检查其绑定的group是否存在
-	if v.currentProjectGroupModel == nil {
-		return nil, errors.New("group does not exist")
-	}
-
-	if v.req.ChannelID != "" {
-		//查找聊天群里所有的客服
-		members, err := v.groupDB.QueryMembersWithGroupNo(v.req.ChannelID)
-		if err != nil {
-			v.Error("查询群成员错误", zap.Error(err))
-			return nil, err
-		}
-		var uidList []string
-		for _, gmember := range members {
-			uidList = append(uidList, gmember.UID)
-		}
-		//查找在线的客服
-		onlineUids, err := v.getOnlineUsers(uidList)
-		if err != nil {
-			return nil, err
-		}
-		if len(onlineUids) > 0 {
-			//群里存在在线的客服，不用分配，随便返回一个即可
-			kefuUid := onlineUids[0]
-			kefu, err := v.user.Db().QueryByUID(kefuUid)
-			if err != nil {
-				v.Error("查询用户信息错误", zap.Error(err))
-				return nil, err
-			}
-			return kefu, nil
-		}
-		//如果没有实时在线的客服，那就看是否有10分钟内离线的客服
-		for _, uid := range uidList {
-			exist, err := v.kefuIsOnline(uid)
-			if err != nil {
-				return nil, err
-			}
-			if exist {
-				kefuUid := uid
-				kefu, err := v.user.Db().QueryByUID(kefuUid)
-				if err != nil {
-					v.Error("查询用户信息错误", zap.Error(err))
-					return nil, err
-				}
-				return kefu, nil
-			}
-		}
-	}
-	//如果还是没有，那就从项目群里取一个在线的客服
-
-	//从项目群组中分配一个客服出来作为该游客的专属客服
-	//查找该群里有多少客服
-	members, err := v.groupDB.QueryKefuMembers(v.currentProjectGroupModel.GroupNo)
-	if err != nil {
-		v.Error("查询群成员信息错误", zap.Error(err))
-		return nil, err
-	}
-	if len(members) == 0 {
-		//没有客服可用
-		return nil, errors.New("the current project does not have customer service")
-	}
-	//再过滤一遍，排除掉系统账号
-	var uids []string
-	for _, gmember := range members {
-		uids = append(uids, gmember.UID)
-	}
-	userList, err := v.user.Db().QueryByUIDs(uids)
-	if err != nil {
-		v.Error("查询用户信息错误", zap.Error(err))
-		return nil, err
-	}
-	var users []*user.Model
-	uids = []string{}
-	for _, user := range userList {
-		if user.Category == "system" {
-			continue
-		}
-		uids = append(uids, user.UID)
-		users = append(users, user)
-	}
-	//logic: 查询在线的用户
-	onlines, err := v.user.OnlineService().QueryOnlineWithUIDs(uids)
-	if err != nil {
-		v.Error("查询在线用户错误", zap.Error(err))
-		return nil, err
-	}
-
-	if len(onlines) != 0 {
-		//有在線人數，分配给在线的客服，筛选出在线客服uid
-		uids = []string{}
-		for _, online := range onlines {
-			uids = append(uids, online.UID)
-		}
-	}
-	//没有在线人数，则默认分配给所有离线客服
-	if len(uids) == 0 {
-		//没有客服可用
-		return nil, errors.New("the current project does not have customer service")
-	}
-
-	//确保每个客服在当日内分配到的游客数一样多：采用标记分配法
-	// 	具体步骤如下：
-	// 1.给每个人设置一个初始状态为未标记。这里给群成员备足标记📌为 xxxx.
-	// 2.开始分配苹果时，从未标记的人中随机选择一个人进行分配，并将其标记为已分配过苹果。
-	// 3.重复第2步，直到所有人都被标记为已分配过苹果。
-	// 4.当所有人都被标记后，表示完成了一次轮回分配。清除所有人的标记，重复第2步开始新的轮回分配。
-
-	//查找出未标记的群成员
-	var noMarkMembers []*group.MemberModel
-	var markMembers []*group.MemberModel
-	for _, uid := range uids {
-		for _, member := range members {
-			if uid == member.UID {
-				// 有标记
-				if strings.HasSuffix(member.Remark, ".") {
-					markMembers = append(markMembers, member)
-				} else {
-					noMarkMembers = append(noMarkMembers, member)
-				}
-			}
-		}
-	}
-
-	//检查是否存在未标记的群成员
-	if len(noMarkMembers) == 0 {
-		if len(markMembers) == 0 {
-			//特殊情况
-			v.Error("member does not exist")
-			return nil, errors.New("member does not exist")
-		}
-		//如果不存在未标记的群成员，则开启新的轮回分配
-		//清除所有的标记
-		for _, member := range markMembers {
-			for strings.HasSuffix(member.Remark, ".") {
-				member.Remark = strings.TrimSuffix(member.Remark, ".")
-			}
-			if err := v.groupDB.UpdateMemberRemark(member.Id, member.Remark); err != nil {
-				v.Error("更新群成员备注失败", zap.Error(err))
-				return nil, err
-			}
-		}
-		noMarkMembers = markMembers
-	}
-
-	var addRemark = func(m *group.MemberModel) error {
-		if strings.HasSuffix(m.Remark, ".") {
-			return nil
-		}
-		m.Remark = fmt.Sprintf("%s.", m.Remark)
-		if err := v.groupDB.UpdateMemberRemark(m.Id, m.Remark); err != nil {
-			v.Error("更新群成员备注失败", zap.Error(err))
-			return fmt.Errorf("更新群成员备注失败: %s", err)
-		}
-		return nil
-	}
-
-	//从未标记的群成员中随机挑选出一个
-	random := rand.New(rand.NewSource(time.Now().UnixNano()))
-	randomIndex := random.Intn(len(noMarkMembers))
-	randomMember := noMarkMembers[randomIndex]
-	uid := randomMember.UID
-	for _, user := range users {
-		if user.UID == uid {
-			//如果已经在users中了，没必要再继续查询，直接返回即可
-			if err := addRemark(randomMember); err != nil {
-				return nil, err
-			}
-			return user, nil
-		}
-	}
-
-	user, err := v.user.Db().QueryByUID(uid)
-	if err != nil {
-		v.Error("查询用户信息错误", zap.Error(err))
-		return nil, err
-	}
-	if user == nil {
-		v.Error("查询用户不存在")
-		return nil, errors.New("system error! user does not exist")
-	}
-	if err := addRemark(randomMember); err != nil {
-		return nil, err
-	}
-	return user, nil
-}
-
-func (v *Visitor) genVisitorInfo() string {
-	var sentContent string
-	sentContent = fmt.Sprintf("来访游客id: %d", v.info.Id)
-	sentContent = fmt.Sprintf("%s\nip: %s", sentContent, v.info.Ip)
-	sentContent = fmt.Sprintf("%s\n时间: %s", sentContent, time.Now().Format("2006-01-02 15:04:05"))
-	sentContent = fmt.Sprintf("%s\n来源: %s", sentContent, v.info.Referer)
-	sentContent = fmt.Sprintf("%s\n地区: %s", sentContent, v.info.Region)
-	sentContent = fmt.Sprintf("%s\n城市: %s", sentContent, v.info.City)
-	sentContent = fmt.Sprintf("%s\n平台: %s", sentContent, v.info.Platform)
-	sentContent = fmt.Sprintf("%s\n设备: %s", sentContent, v.info.Device)
-	sentContent = fmt.Sprintf("%s\n系统: %s", sentContent, v.info.Os)
-	sentContent = fmt.Sprintf("%s\n浏览器: %s", sentContent, v.info.Browser)
-	sentContent = fmt.Sprintf("%s\n语言: %s", sentContent, v.info.Language)
-	return sentContent
-}
-
-// 发送游客拜访信息到群频道
-func (v *Visitor) sendVisitorInfo() {
-	var sentContent string = v.genVisitorInfo()
-
-	//发送游客的来访信息给客服
-	err := v.ctx.SendMessage(&config.MsgSendReq{
-		FromUID:     v.visitorUserUid,
-		ChannelID:   v.req.ChannelID,
-		ChannelType: CurrentChannelType.Uint8(),
-		Payload: []byte(util.ToJson(map[string]interface{}{
-			"content": sentContent,
-			"type":    common.Tip,
-		})),
-		Header: config.MsgHeader{
-			RedDot: 0,
-		},
-	})
-	if err != nil {
-		v.Error("发送游客来访消息失败", zap.Error(err))
-	}
-}
-
-func (v *Visitor) redisLastLoginTimeKey() string {
-	return fmt.Sprintf("visitorlastloginat:%s", v.req.ChannelID)
-}
-
-// 发送上线信息到群频道，冷却时间30分钟
-func (v *Visitor) sendOnlineMsgToKefu() {
-	key := v.redisLastLoginTimeKey()
-	redisCli := v.ctx.Cache()
-	value, err := redisCli.Get(key)
-	if err != nil {
-		v.Error("获取redis值错误", zap.Error(err))
-	}
-	if value != "" {
-		//说明30分钟内登录过
-		//返回，不执行
-		return
-	}
-	//发送游客的上线信息给客服
-	err = v.ctx.SendMessage(&config.MsgSendReq{
-		FromUID:     v.visitorUserUid,
-		ChannelID:   v.req.ChannelID,
-		ChannelType: CurrentChannelType.Uint8(),
-		Payload: []byte(util.ToJson(map[string]interface{}{
-			"content": "已上線",
-			"type":    common.Tip,
-		})),
-		Header: config.MsgHeader{
-			RedDot: 1,
-		},
-	})
-	if err != nil {
-		v.Error("发送游客来访消息失败", zap.Error(err))
-	}
 }
 
 // func (v *Visitor) getOnlineMemberWithGroupNo(groupNo string) ([]string, error) {

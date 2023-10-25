@@ -358,3 +358,11 @@ func IsLocalLink(link string) bool {
 
 	return false
 }
+
+func NewUUID(uuids ...string) string {
+	return MD5(strings.Join(uuids, ""))
+}
+
+func ServerError(c *wkhttp.Context) {
+	c.ResponseErrorWithStatus(errors.New("server error"), 500)
+}

@@ -29,7 +29,7 @@ func (v *Visitor) syncChannelMessage(c *wkhttp.Context) {
 	}
 
 	in := &config.SyncChannelMessageReq{
-		LoginUID:        v.visitorUserUid,
+		LoginUID:        v.visitor.UID,
 		DeviceUUID:      "",
 		ChannelID:       req.ChannelID,
 		ChannelType:     CurrentChannelType.Uint8(),
