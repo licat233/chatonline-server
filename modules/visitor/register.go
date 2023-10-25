@@ -182,7 +182,7 @@ func (v *Visitor) createUserModel() (*user.Model, error) {
 }
 
 // 发送游客拜访信息到群频道，不发也可以，因为已经在群公告显示了游客信息
-func (v *Visitor) sendVisitorInfo() {
+func (v *Visitor) SendVisitorInfo() {
 	var sentContent string = v.genVisitorInfo()
 
 	//发送游客的来访信息给客服
