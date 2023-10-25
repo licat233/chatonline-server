@@ -314,7 +314,7 @@ func (v *Visitor) registerHandler(c *wkhttp.Context) error {
 		v.Error("分配客服出现错误", zap.Error(err))
 		return err
 	}
-
+	v.req.ChannelID = util.GenerUUID()
 	//开启一个群聊频道，进行交流
 	g, err := v.group.VisitorGroupCreate(&group.VisitorGroupCreateReq{
 		CreateUid: v.visitorUserUid,
@@ -370,39 +370,25 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 		return nil, errors.New("group does not exist")
 	}
 
-	//查找聊天群里所有的客服
-	members, err := v.groupDB.QueryMembersWithGroupNo(v.req.ChannelID)
-	if err != nil {
-		v.Error("查询群成员错误", zap.Error(err))
-		return nil, err
-	}
-	var uidList []string
-	for _, gmember := range members {
-		uidList = append(uidList, gmember.UID)
-	}
-	//查找在线的客服
-	onlineUids, err := v.getOnlineUsers(uidList)
-	if err != nil {
-		return nil, err
-	}
-	if len(onlineUids) > 0 {
-		//群里存在在线的客服，不用分配，随便返回一个即可
-		kefuUid := onlineUids[0]
-		kefu, err := v.user.Db().QueryByUID(kefuUid)
+	if v.req.ChannelID != "" {
+		//查找聊天群里所有的客服
+		members, err := v.groupDB.QueryMembersWithGroupNo(v.req.ChannelID)
 		if err != nil {
-			v.Error("查询用户信息错误", zap.Error(err))
+			v.Error("查询群成员错误", zap.Error(err))
 			return nil, err
 		}
-		return kefu, nil
-	}
-	//如果没有实时在线的客服，那就看是否有10分钟内离线的客服
-	for _, uid := range uidList {
-		exist, err := v.kefuIsOnline(uid)
+		var uidList []string
+		for _, gmember := range members {
+			uidList = append(uidList, gmember.UID)
+		}
+		//查找在线的客服
+		onlineUids, err := v.getOnlineUsers(uidList)
 		if err != nil {
 			return nil, err
 		}
-		if exist {
-			kefuUid := uid
+		if len(onlineUids) > 0 {
+			//群里存在在线的客服，不用分配，随便返回一个即可
+			kefuUid := onlineUids[0]
 			kefu, err := v.user.Db().QueryByUID(kefuUid)
 			if err != nil {
 				v.Error("查询用户信息错误", zap.Error(err))
@@ -410,13 +396,28 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 			}
 			return kefu, nil
 		}
+		//如果没有实时在线的客服，那就看是否有10分钟内离线的客服
+		for _, uid := range uidList {
+			exist, err := v.kefuIsOnline(uid)
+			if err != nil {
+				return nil, err
+			}
+			if exist {
+				kefuUid := uid
+				kefu, err := v.user.Db().QueryByUID(kefuUid)
+				if err != nil {
+					v.Error("查询用户信息错误", zap.Error(err))
+					return nil, err
+				}
+				return kefu, nil
+			}
+		}
 	}
-
 	//如果还是没有，那就从项目群里取一个在线的客服
 
 	//从项目群组中分配一个客服出来作为该游客的专属客服
 	//查找该群里有多少客服
-	members, err = v.groupDB.QueryKefuMembers(v.currentProjectGroupModel.GroupNo)
+	members, err := v.groupDB.QueryKefuMembers(v.currentProjectGroupModel.GroupNo)
 	if err != nil {
 		v.Error("查询群成员信息错误", zap.Error(err))
 		return nil, err
