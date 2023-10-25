@@ -33,7 +33,7 @@ func (v *Visitor) syncChannelMessage(c *wkhttp.Context) {
 		LoginUID:        v.visitorUserUid,
 		DeviceUUID:      "",
 		ChannelID:       req.ChannelID,
-		ChannelType:     common.ChannelTypeCustomerService.Uint8(),
+		ChannelType:     common.ChannelTypeGroup.Uint8(),
 		StartMessageSeq: req.StartMessageSeq,
 		EndMessageSeq:   req.EndMessageSeq,
 		Limit:           req.Limit,
