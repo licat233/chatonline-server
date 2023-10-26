@@ -63,6 +63,6 @@ func (d *DB) QueryKefuByUIDs(uids []string) ([]*Model, error) {
 		return nil, nil
 	}
 	var models []*Model
-	_, err := d.session.Select("*").From("user").Where("uid in ?", uids).Where("(category=service OR category='') and status=1").Load(&models)
+	_, err := d.session.Select("*").From("user").Where("uid in ?", uids).Where("(category='service' OR category='') and status=1").Load(&models)
 	return models, err
 }

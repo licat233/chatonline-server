@@ -10,10 +10,10 @@ import (
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/group"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/message"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/user"
-	"github.com/TangSengDaoDao/TangSengDaoDaoServer/pkg/log"
-	"github.com/TangSengDaoDao/TangSengDaoDaoServer/pkg/util"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/common"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/config"
+	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/pkg/log"
+	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/pkg/util"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/pkg/wkhttp"
 	"github.com/mssola/useragent"
 	"go.uber.org/zap"
@@ -160,13 +160,13 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	}
 
 	// 获取语言
-	languages := strings.Join(util.RemoteLanguage(c.Context.Request), ",")
+	languages := strings.Join(RemoteLanguage(c.Context.Request), ",")
 
 	// 获取ip
-	ip := util.RemoteIp(c.Context.ClientIP())
+	ip := RemoteIp(c.Context.ClientIP())
 
 	// 解析 ip 信息
-	address := util.QueryAddress(ip)
+	address := QueryAddress(ip)
 
 	// 浏览器信息
 	browser, _ := ua.Browser()

@@ -16,6 +16,32 @@ import (
 func (v *Visitor) assignKefu() (*user.Model, error) {
 	//如果是老访客
 	if v.isOldVisitor {
+		//如果不能重新分配客服，则查询群里有没有客服即可，存在直接返回
+		if !v.req.RestKefu {
+			members, err := v.group.GroupDB().QueryMembersWithGroupNo(v.channelID)
+			if err != nil {
+				v.Error("查询群成员错误", zap.Error(err))
+				return nil, err
+			}
+			//除了自己
+			kefuUid := ""
+			for _, member := range members {
+				if member.UID != v.visitor.UID {
+					kefuUid = member.UID
+					break
+				}
+			}
+			if kefuUid != "" {
+				kefu, err := v.user.Db().QueryByUID(kefuUid)
+				if err != nil {
+					v.Error("查询user错误", zap.Error(err))
+					return nil, err
+				}
+				if kefu != nil && kefu.Status == 1 {
+					return kefu, nil
+				}
+			}
+		}
 		//查找群里在线的客服
 		kefuUids, err := v.getOnlineUsersFromGroup(v.channelID, v.visitor.UID)
 		if err != nil {
