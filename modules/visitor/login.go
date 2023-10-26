@@ -54,7 +54,7 @@ func (v *Visitor) loginHandler() error {
 			}
 		}
 	}
-
+	go v.sendOnlineMsgToKefu()
 	return nil
 }
 

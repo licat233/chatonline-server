@@ -14,46 +14,42 @@ import (
 
 // 根据当前游客情况，分配一个客服出来
 func (v *Visitor) assignKefu() (*user.Model, error) {
-	if v.channelID != "" {
-		//查找聊天群里所有的客服
-		members, err := v.groupDB.QueryMembersWithGroupNo(v.channelID)
+	//如果是老访客
+	if v.isOldVisitor {
+		//查找群里在线的客服
+		kefuUids, err := v.getOnlineUsersFromGroup(v.channelID, v.visitor.UID)
 		if err != nil {
 			v.Error("查询群成员错误", zap.Error(err))
 			return nil, err
 		}
-		var uidList []string
-		for _, gmember := range members {
-			uidList = append(uidList, gmember.UID)
-		}
-		//查找在线的客服
-		onlineUids, err := v.getOnlineUsers(uidList)
-		if err != nil {
-			return nil, err
-		}
-		if len(onlineUids) > 0 {
+		if len(kefuUids) > 0 {
 			//群里存在在线的客服，不用分配，随便返回一个即可
-			kefuUid := onlineUids[0]
-			kefu, err := v.user.Db().QueryByUID(kefuUid)
-			if err != nil {
-				v.Error("查询用户信息错误", zap.Error(err))
-				return nil, err
-			}
-			return kefu, nil
-		}
-		//如果没有实时在线的客服，那就看是否有10分钟内离线的客服
-		for _, uid := range uidList {
-			exist, err := v.kefuIsOnline(uid)
-			if err != nil {
-				return nil, err
-			}
-			if exist {
-				kefuUid := uid
+			for _, kefuUid := range kefuUids {
 				kefu, err := v.user.Db().QueryByUID(kefuUid)
 				if err != nil {
 					v.Error("查询用户信息错误", zap.Error(err))
 					return nil, err
 				}
+				if kefu == nil {
+					//不存在
+					continue
+				}
+				if kefu.Status == 0 {
+					continue
+				}
 				return kefu, nil
+			}
+			//到了这一步，表示没有状态可用的在线客服
+			//移除他们
+			err = v.group.VisitorMemberRemove(&group.VisitorMemberRemoveReq{
+				OperatorUid:  v.visitor.UID,
+				OperatorName: OperatorName,
+				Members:      kefuUids,
+				GroupNo:      v.channelID,
+			})
+			if err != nil {
+				v.Error("移除群成员错误", zap.Error(err))
+				return nil, err
 			}
 		}
 	}
@@ -61,7 +57,7 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 
 	//从项目群组中分配一个客服出来作为该游客的专属客服
 	//查找该群里有多少客服
-	members, err := v.groupDB.QueryKefuMembers(v.currentProjectGroupModel.GroupNo)
+	members, err := v.groupDB.QueryKefuMembers(v.currentProjectGroupModel.GroupNo, v.visitor.UID)
 	if err != nil {
 		v.Error("查询群成员信息错误", zap.Error(err))
 		return nil, err
@@ -70,43 +66,42 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 		//没有客服可用
 		return nil, errors.New("the current project does not have customer service")
 	}
-	//再过滤一遍，排除掉系统账号
-	var uids []string
+	//取出uid
+	var allUids []string
 	for _, gmember := range members {
-		uids = append(uids, gmember.UID)
+		allUids = append(allUids, gmember.UID)
 	}
-	userList, err := v.user.Db().QueryByUIDs(uids)
+	//查找看有无在线人数
+	onlineUids, err := v.getOnlineUsers(allUids)
+	if err != nil {
+		return nil, err
+	}
+	//如果没有在线的uid
+	if len(onlineUids) == 0 {
+		//则默认取所有离线客服
+		onlineUids = allUids
+	}
+
+	//取出所有的user信息
+	kefuList, err := v.user.Db().QueryKefuByUIDs(allUids)
 	if err != nil {
 		v.Error("查询用户信息错误", zap.Error(err))
 		return nil, err
 	}
-	var users []*user.Model
-	uids = []string{}
-	for _, user := range userList {
-		if user.Category == "system" || user.Category == "visitor" {
-			continue
-		}
-		uids = append(uids, user.UID)
-		users = append(users, user)
-	}
-	//logic: 查询在线的用户
-	onlines, err := v.user.OnlineService().QueryOnlineWithUIDs(uids)
-	if err != nil {
-		v.Error("查询在线用户错误", zap.Error(err))
-		return nil, err
-	}
-
-	if len(onlines) != 0 {
-		//有在線人數，分配给在线的客服，筛选出在线客服uid
-		uids = []string{}
-		for _, online := range onlines {
-			uids = append(uids, online.UID)
-		}
-	}
-	//没有在线人数，则默认分配给所有离线客服
-	if len(uids) == 0 {
+	//没有可用客服
+	if len(kefuList) == 0 {
 		//没有客服可用
 		return nil, errors.New("the current project does not have customer service")
+	}
+
+	var kefuMembers []*group.MemberModel
+	//筛选出可用会员
+	for _, kf := range kefuList {
+		for _, member := range members {
+			if kf.UID == member.UID {
+				kefuMembers = append(kefuMembers, member)
+			}
+		}
 	}
 
 	//确保每个客服在当日内分配到的游客数一样多：采用标记分配法
@@ -119,16 +114,12 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 	//查找出未标记的群成员
 	var noMarkMembers []*group.MemberModel
 	var markMembers []*group.MemberModel
-	for _, uid := range uids {
-		for _, member := range members {
-			if uid == member.UID {
-				// 有标记
-				if strings.HasSuffix(member.Remark, ".") {
-					markMembers = append(markMembers, member)
-				} else {
-					noMarkMembers = append(noMarkMembers, member)
-				}
-			}
+	for _, member := range kefuMembers {
+		// 有标记
+		if strings.HasSuffix(member.Remark, ".") {
+			markMembers = append(markMembers, member)
+		} else {
+			noMarkMembers = append(noMarkMembers, member)
 		}
 	}
 
@@ -169,10 +160,10 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 	random := rand.New(rand.NewSource(time.Now().UnixNano()))
 	randomIndex := random.Intn(len(noMarkMembers))
 	randomMember := noMarkMembers[randomIndex]
+	//找出对应的user
 	uid := randomMember.UID
-	for _, user := range users {
+	for _, user := range kefuList {
 		if user.UID == uid {
-			//如果已经在users中了，没必要再继续查询，直接返回即可
 			if err := addRemark(randomMember); err != nil {
 				return nil, err
 			}
@@ -180,40 +171,64 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 		}
 	}
 
-	user, err := v.user.Db().QueryByUID(uid)
-	if err != nil {
-		v.Error("查询用户信息错误", zap.Error(err))
-		return nil, err
-	}
-	if user == nil {
-		v.Error("查询用户不存在")
-		return nil, errors.New("system error! user does not exist")
-	}
-	if err := addRemark(randomMember); err != nil {
-		return nil, err
-	}
-	return user, nil
+	//找不到？
+	v.Error("无对应的kefu用户")
+	return nil, errors.New("system error! group user does not exist")
 }
 
+// 查找群里在线的客服
+func (v *Visitor) getOnlineUsersFromGroup(groupNo string, visitorUID string) ([]string, error) {
+	//查找聊天群里所有的客服
+	kefuUids, err := v.groupDB.QueryKefuUidMembers(groupNo, visitorUID)
+	if err != nil {
+		v.Error("查询群成员错误", zap.Error(err))
+		return nil, err
+	}
+	//查找在线的客服
+	onlineUids, err := v.getOnlineUsers(kefuUids)
+	if err != nil {
+		return nil, err
+	}
+	return onlineUids, nil
+}
+
+// 查询在线的users， 10分钟内离线的也算是在线客服
 func (v *Visitor) getOnlineUsers(uids []string) ([]string, error) {
 	if len(uids) == 0 {
 		return nil, nil
 	}
-	onlines, err := v.user.OnlineService().QueryOnlineWithUIDs(uids)
+	all, err := v.user.OnlineDB().QueryOnlineWithUIDs(uids)
 	if err != nil {
 		v.Error("查询在线用户错误", zap.Error(err))
 		return nil, err
 	}
-	res := []string{}
-	for _, online := range onlines {
-		res = append(res, online.UID)
+	if len(all) == 0 {
+		return nil, nil
 	}
-	return res, nil
+	//先查看是否存在在线的客服
+	var onlineUserUids []string
+	for _, onlineUser := range all {
+		if onlineUser.Online == 1 {
+			onlineUserUids = append(onlineUserUids, onlineUser.UID)
+		}
+	}
+	//如果存在，直接返回
+	if len(onlineUserUids) != 0 {
+		return onlineUserUids, nil
+	}
+	//如果不存在，查看是否存在10分钟内离线的客服
+	var list []string
+	for _, onlineUser := range all {
+		if onlineUser.IsOnline() {
+			list = append(list, onlineUser.UID)
+		}
+	}
+	return list, nil
 }
 
 func (v *Visitor) kefuIsOnline(uid string) (bool, error) {
 	//离线小于10分钟，不算做离线
-	onlineModel, err := v.user.OnlineService().QueryOnlineWithUID(uid)
+	onlineModel, err := v.user.OnlineDB().QueryOnlineWithUID(uid)
 	if err != nil {
 		v.Error("查询在线信息错误", zap.Error(err))
 		return false, err

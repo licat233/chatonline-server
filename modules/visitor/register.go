@@ -117,6 +117,7 @@ func (v *Visitor) registerHandler(c *wkhttp.Context) error {
 	v.info.Id = v.visitor.Id
 	v.info.Name = groupName
 
+	// go v.SendVisitorInfo() //不用发了，公告有显示
 	return nil
 }
 

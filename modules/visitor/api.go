@@ -19,43 +19,6 @@ import (
 	"go.uber.org/zap"
 )
 
-type Info struct {
-	Id       int64
-	Name     string
-	Ip       string
-	Referer  string
-	Region   string
-	City     string
-	Platform string
-	Device   string
-	Os       string
-	Browser  string
-	Language string
-}
-
-type Visitor struct {
-	ctx *config.Context
-	log.Log
-	groupDB *group.DB
-
-	user    *user.User
-	message *message.Message
-	group   *group.Group
-
-	currentProjectGroupModel *group.Model
-
-	req *visitorLoginReq
-
-	info *Info //访客信息
-
-	LoginInterval time.Duration //登录间隔时间，在此时间内，不会发送上线消息
-
-	kefu    *user.Model
-	visitor *user.Model
-
-	channelID string
-}
-
 const CurrentChannelType = common.ChannelTypeGroup
 const OperatorName = "system"
 
@@ -91,6 +54,44 @@ func (r *visitorLoginReq) VisitorLoginCheck() error {
 	return nil
 }
 
+type Info struct {
+	Id       int64
+	Name     string
+	Ip       string
+	Referer  string
+	Region   string
+	City     string
+	Platform string
+	Device   string
+	Os       string
+	Browser  string
+	Language string
+}
+
+type Visitor struct {
+	ctx *config.Context
+	log.Log
+	groupDB *group.DB
+
+	user    *user.User
+	message *message.Message
+	group   *group.Group
+
+	currentProjectGroupModel *group.Model
+
+	req *visitorLoginReq
+
+	info *Info //访客信息
+
+	LoginInterval time.Duration //登录间隔时间，在此时间内，不会发送上线消息
+
+	kefu    *user.Model
+	visitor *user.Model
+
+	channelID    string
+	isOldVisitor bool
+}
+
 func New(ctx *config.Context) *Visitor {
 	v := &Visitor{
 		ctx:                      ctx,
@@ -106,6 +107,7 @@ func New(ctx *config.Context) *Visitor {
 		kefu:                     nil,
 		visitor:                  nil,
 		channelID:                "",
+		isOldVisitor:             false,
 	}
 
 	return v
@@ -135,20 +137,28 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 
 	v.req = &req
 
+	platform := req.Platform
+
 	// 获取referer
 	referer := req.Referer
-	//判断是本地开发时，发送过来的，且当前不是调试模式
-	if IsLocalLink(referer) && v.ctx.GetConfig().Mode != "debug" {
-		//则不允许登录
-		c.ResponseErrorWithStatus(errors.New("the requested data format is incorrect"), 403)
-		return
-	}
+
 	// 获取设备信息
 	ua := useragent.New(c.Context.Request.UserAgent())
 	// 如果是机器人
 	if ua.Bot() {
 		c.ResponseErrorWithStatus(errors.New("the current request is a bot"), 403)
 		return
+	}
+
+	//如果当前不是debug模式
+	if v.ctx.GetConfig().Mode != "debug" {
+		//如果是本地链接，拒绝访问
+		//如果是模拟器进行请求，拒绝访问
+		//如果是PC平台，但显示却是手机平台，那就表示不正常的请求，直接拒绝响应
+		if IsLocalLink(referer) || ua.Mobile() == IsDesktopDevice(req.Platform) {
+			c.ResponseErrorWithStatus(errors.New("abnormal requests"), 400)
+			return
+		}
 	}
 
 	// 获取语言
@@ -162,12 +172,6 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 
 	// 浏览器信息
 	browser, _ := ua.Browser()
-
-	//如果是PC平台，但显示却是手机平台，那就表示不正常的请求，直接拒绝响应
-	if ua.Mobile() == IsDesktopDevice(req.Platform) {
-		c.ResponseErrorWithStatus(errors.New("abnormal requests"), 400)
-		return
-	}
 
 	// 查验项目uuid是否存在
 	// 注意：这里的项目以群组的形式存在，直接查询是否存在该群组
@@ -189,15 +193,12 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		Referer:  referer,
 		Region:   address.Country,
 		City:     address.City,
-		Platform: req.Platform,
+		Platform: platform,
 		Device:   ua.Platform(),
 		Os:       ua.OS(),
 		Browser:  browser,
 		Language: languages,
 	}
-
-	// 默认为新游客
-	isNewVisitor := true
 
 	//检查visitor是否存在
 	if req.UserUid != "" {
@@ -209,7 +210,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		}
 	}
 
-	//如果不是新用户，则查看自己的群是否存在
+	//如果visitor存在，则查看是否存在咨询群
 	if v.visitor != nil {
 		channelId := v.genChannelID()
 		// 同时检查其绑定的group是否存在
@@ -229,7 +230,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 			}
 			//如果自己在里面，则设为老游客
 			if exist {
-				isNewVisitor = false
+				v.isOldVisitor = true
 				//否则记录channel_uid
 				v.channelID = group.GroupNo
 				//顺便检查一下群名称是否正确
@@ -242,8 +243,16 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 						return
 					}
 				}
+			} else {
+				//如果不在，表示该账号不能用于当前项目
+				//因为wukongim无法单独只监听某个频道，所以只能一个项目使用一个visitor
+				//一个页面存在多个visitor，请在缓存中设置键值对，projectUID-visitorUID
+				//清空当前visitor信息
+				v.visitor = nil
 			}
 		}
+
+		//如果账号存在，当被当成了新游客，那会导致前端的老游客uid被覆盖，彻底丢失
 	}
 
 	//分配一个客服出来
@@ -259,14 +268,13 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		return
 	}
 
-	if isNewVisitor {
+	if !v.isOldVisitor {
 		err = v.registerHandler(c)
 		if err != nil {
 			v.Error("游客注册失败", zap.Error(err))
 			ServerError(c)
 			return
 		}
-		// go v.sendVisitorInfo() //不用发了，公告有显示
 	} else {
 		err = v.loginHandler()
 		if err != nil {
@@ -274,7 +282,6 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 			ServerError(c)
 			return
 		}
-		v.sendOnlineMsgToKefu()
 	}
 
 	token, err := v.GenVisitorIMToken()
