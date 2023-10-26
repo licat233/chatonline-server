@@ -82,7 +82,7 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 		onlineUids = allUids
 	}
 
-	//取出所有的user信息
+	//取出所有的kefu user信息
 	kefuList, err := v.user.Db().QueryKefuByUIDs(allUids)
 	if err != nil {
 		v.Error("查询用户信息错误", zap.Error(err))
@@ -123,6 +123,37 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 		}
 	}
 
+	var removeRemark = func(m *group.MemberModel) error {
+		for strings.HasSuffix(m.Remark, ".") {
+			m.Remark = strings.TrimSuffix(m.Remark, ".")
+		}
+		if err := v.groupDB.UpdateMemberRemark(m.Id, m.Remark); err != nil {
+			v.Error("更新群成员备注失败", zap.Error(err))
+			return fmt.Errorf("更新群成员备注失败: %s", err)
+		}
+		return nil
+	}
+
+	var addRemark = func(m *group.MemberModel) error {
+		if strings.HasSuffix(m.Remark, ".") {
+			return nil
+		}
+		if m.Remark == "" {
+			//将备注名默认设置为用户名
+			for _, u := range kefuList {
+				if u.UID == m.UID {
+					m.Remark = u.Name
+				}
+			}
+		}
+		m.Remark = fmt.Sprintf("%s.", m.Remark)
+		if err := v.groupDB.UpdateMemberRemark(m.Id, m.Remark); err != nil {
+			v.Error("更新群成员备注失败", zap.Error(err))
+			return fmt.Errorf("更新群成员备注失败: %s", err)
+		}
+		return nil
+	}
+
 	//检查是否存在未标记的群成员
 	if len(noMarkMembers) == 0 {
 		if len(markMembers) == 0 {
@@ -133,27 +164,11 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 		//如果不存在未标记的群成员，则开启新的轮回分配
 		//清除所有的标记
 		for _, member := range markMembers {
-			for strings.HasSuffix(member.Remark, ".") {
-				member.Remark = strings.TrimSuffix(member.Remark, ".")
-			}
-			if err := v.groupDB.UpdateMemberRemark(member.Id, member.Remark); err != nil {
-				v.Error("更新群成员备注失败", zap.Error(err))
+			if err = removeRemark(member); err != nil {
 				return nil, err
 			}
 		}
 		noMarkMembers = markMembers
-	}
-
-	var addRemark = func(m *group.MemberModel) error {
-		if strings.HasSuffix(m.Remark, ".") {
-			return nil
-		}
-		m.Remark = fmt.Sprintf("%s.", m.Remark)
-		if err := v.groupDB.UpdateMemberRemark(m.Id, m.Remark); err != nil {
-			v.Error("更新群成员备注失败", zap.Error(err))
-			return fmt.Errorf("更新群成员备注失败: %s", err)
-		}
-		return nil
 	}
 
 	//从未标记的群成员中随机挑选出一个
@@ -226,35 +241,35 @@ func (v *Visitor) getOnlineUsers(uids []string) ([]string, error) {
 	return list, nil
 }
 
-func (v *Visitor) kefuIsOnline(uid string) (bool, error) {
-	//离线小于10分钟，不算做离线
-	onlineModel, err := v.user.OnlineDB().QueryOnlineWithUID(uid)
-	if err != nil {
-		v.Error("查询在线信息错误", zap.Error(err))
-		return false, err
-	}
-	if onlineModel == nil {
-		return false, errors.New("kefu online info does not exist")
-	}
-	if onlineModel.Online == 1 {
-		//如果专属客服在线，则返回原客服
-		return true, nil
-	} else {
-		// 如果专属客服不在线，且离线超过10分钟
-		t := time.Unix(int64(onlineModel.LastOffline), 0)
-		//离线时间小于10分钟
-		if time.Since(t).Minutes() < 10 {
-			//不用换客服
-			return true, nil
-		}
-		// 则根据 reset 决定是否分配新的客服
-		if !v.req.RestKefu {
-			// 如果不重新分配，则返回原客服
-			return true, nil
-		}
-	}
-	return false, nil
-}
+// func (v *Visitor) kefuIsOnline(uid string) (bool, error) {
+// 	//离线小于10分钟，不算做离线
+// 	onlineModel, err := v.user.OnlineDB().QueryOnlineWithUID(uid)
+// 	if err != nil {
+// 		v.Error("查询在线信息错误", zap.Error(err))
+// 		return false, err
+// 	}
+// 	if onlineModel == nil {
+// 		return false, errors.New("kefu online info does not exist")
+// 	}
+// 	if onlineModel.Online == 1 {
+// 		//如果专属客服在线，则返回原客服
+// 		return true, nil
+// 	} else {
+// 		// 如果专属客服不在线，且离线超过10分钟
+// 		t := time.Unix(int64(onlineModel.LastOffline), 0)
+// 		//离线时间小于10分钟
+// 		if time.Since(t).Minutes() < 10 {
+// 			//不用换客服
+// 			return true, nil
+// 		}
+// 		// 则根据 reset 决定是否分配新的客服
+// 		if !v.req.RestKefu {
+// 			// 如果不重新分配，则返回原客服
+// 			return true, nil
+// 		}
+// 	}
+// 	return false, nil
+// }
 
 // func (v *Visitor) getOnlineMemberWithGroupNo(groupNo string) ([]string, error) {
 // 	members, err := v.groupDB.QueryKefuMembers(groupNo)

@@ -365,4 +365,5 @@ func NewUUID(uuids ...string) string {
 
 func ServerError(c *wkhttp.Context) {
 	c.ResponseErrorWithStatus(errors.New("server error"), 500)
+	c.Abort()
 }

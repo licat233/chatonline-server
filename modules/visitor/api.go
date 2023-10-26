@@ -93,13 +93,14 @@ type Visitor struct {
 }
 
 func New(ctx *config.Context) *Visitor {
+	groupSvr := group.New(ctx)
 	v := &Visitor{
 		ctx:                      ctx,
 		Log:                      log.NewTLog("Visitor"),
 		groupDB:                  group.NewDB(ctx),
 		user:                     user.New(ctx),
 		message:                  message.New(ctx),
-		group:                    group.New(ctx),
+		group:                    groupSvr,
 		currentProjectGroupModel: nil,
 		req:                      nil,
 		info:                     nil,
@@ -146,7 +147,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	ua := useragent.New(c.Context.Request.UserAgent())
 	// 如果是机器人
 	if ua.Bot() {
-		c.ResponseErrorWithStatus(errors.New("the current request is a bot"), 403)
+		c.ResponseErrorWithStatus(errors.New("abnormal requests"), 403)
 		return
 	}
 
@@ -156,7 +157,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		//如果是模拟器进行请求，拒绝访问
 		//如果是PC平台，但显示却是手机平台，那就表示不正常的请求，直接拒绝响应
 		if IsLocalLink(referer) || ua.Mobile() == IsDesktopDevice(req.Platform) {
-			c.ResponseErrorWithStatus(errors.New("abnormal requests"), 400)
+			c.ResponseErrorWithStatus(errors.New("abnormal requests"), 403)
 			return
 		}
 	}
@@ -229,9 +230,9 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 				return
 			}
 			//如果自己在里面，则设为老游客
+			v.isOldVisitor = exist
 			if exist {
-				v.isOldVisitor = true
-				//否则记录channel_uid
+				//记录channel_uid
 				v.channelID = group.GroupNo
 				//顺便检查一下群名称是否正确
 				if group.Name != v.genGroupName() {
