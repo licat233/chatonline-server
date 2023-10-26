@@ -25,7 +25,7 @@ func (d *DB) UpdateMemberRemark(id int64, remark string) error {
 // 查找可用的客服
 func (d *DB) QueryKefuMembers(groupNo string) ([]*MemberModel, error) {
 	var memberModels []*MemberModel
-	_, err := d.session.Select("*").From("group_member").Where("group_no=? and is_deleted=0 and role=0 and robot=0 and status=1 and uid<>'visitor'", groupNo).Load(&memberModels)
+	_, err := d.session.Select("*").From("group_member").Where("group_no=? and is_deleted=0 and role=0 and robot=0 and status=1", groupNo).Load(&memberModels)
 	return memberModels, err
 }
 

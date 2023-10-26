@@ -4,21 +4,23 @@ import (
 	"github.com/gocraft/dbr/v2"
 )
 
+// 查询在线的uid有哪些
 func (o *onlineDB) QueryOnlineWithUIDs(uids []string) ([]*onlineStatusModel, error) {
 	if len(uids) == 0 {
 		return nil, nil
 	}
 	var models []*onlineStatusModel
-	_, err := o.session.Select("*").From("user_online").Where("`online`=1 and `uid` in ?", uids).Load(&models)
+	_, err := o.session.Select("*").From("user_online").Where("`uid` in ?", uids).Load(&models)
 	return models, err
 }
 
+// 查询uid是否在线
 func (o *onlineDB) QueryOnlineWithUID(uid string) (*onlineStatusModel, error) {
 	if len(uid) == 0 {
 		return nil, nil
 	}
 	var model *onlineStatusModel
-	_, err := o.session.Select("*").From("user_online").Where("`online`=1 and `uid`=?", uid).Load(&model)
+	_, err := o.session.Select("*").From("user_online").Where("`uid`=?", uid).Load(&model)
 	return model, err
 }
 
