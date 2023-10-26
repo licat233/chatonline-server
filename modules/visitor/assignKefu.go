@@ -54,10 +54,11 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 		}
 	}
 	//如果还是没有，那就从项目群里取一个在线的客服
+	//注意：此时v.visitor可能为nil，请勿调用
 
 	//从项目群组中分配一个客服出来作为该游客的专属客服
 	//查找该群里有多少客服
-	members, err := v.groupDB.QueryKefuMembers(v.currentProjectGroupModel.GroupNo, v.visitor.UID)
+	members, err := v.group.GroupDB().QueryKefuMembers(v.currentProjectKefuGroup.GroupNo, "")
 	if err != nil {
 		v.Error("查询群成员信息错误", zap.Error(err))
 		return nil, err
@@ -127,7 +128,7 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 		for strings.HasSuffix(m.Remark, ".") {
 			m.Remark = strings.TrimSuffix(m.Remark, ".")
 		}
-		if err := v.groupDB.UpdateMemberRemark(m.Id, m.Remark); err != nil {
+		if err := v.group.GroupDB().UpdateMemberRemark(m.Id, m.Remark); err != nil {
 			v.Error("更新群成员备注失败", zap.Error(err))
 			return fmt.Errorf("更新群成员备注失败: %s", err)
 		}
@@ -147,7 +148,7 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 			}
 		}
 		m.Remark = fmt.Sprintf("%s.", m.Remark)
-		if err := v.groupDB.UpdateMemberRemark(m.Id, m.Remark); err != nil {
+		if err := v.group.GroupDB().UpdateMemberRemark(m.Id, m.Remark); err != nil {
 			v.Error("更新群成员备注失败", zap.Error(err))
 			return fmt.Errorf("更新群成员备注失败: %s", err)
 		}
@@ -194,7 +195,7 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 // 查找群里在线的客服
 func (v *Visitor) getOnlineUsersFromGroup(groupNo string, visitorUID string) ([]string, error) {
 	//查找聊天群里所有的客服
-	kefuUids, err := v.groupDB.QueryKefuUidMembers(groupNo, visitorUID)
+	kefuUids, err := v.group.GroupDB().QueryKefuUidMembers(groupNo, visitorUID)
 	if err != nil {
 		v.Error("查询群成员错误", zap.Error(err))
 		return nil, err

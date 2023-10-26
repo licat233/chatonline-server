@@ -71,13 +71,12 @@ type Info struct {
 type Visitor struct {
 	ctx *config.Context
 	log.Log
-	groupDB *group.DB
 
 	user    *user.User
 	message *message.Message
 	group   *group.Group
 
-	currentProjectGroupModel *group.Model
+	currentProjectKefuGroup *group.Model
 
 	req *visitorLoginReq
 
@@ -93,22 +92,20 @@ type Visitor struct {
 }
 
 func New(ctx *config.Context) *Visitor {
-	groupSvr := group.New(ctx)
 	v := &Visitor{
-		ctx:                      ctx,
-		Log:                      log.NewTLog("Visitor"),
-		groupDB:                  group.NewDB(ctx),
-		user:                     user.New(ctx),
-		message:                  message.New(ctx),
-		group:                    groupSvr,
-		currentProjectGroupModel: nil,
-		req:                      nil,
-		info:                     nil,
-		LoginInterval:            time.Minute * 30,
-		kefu:                     nil,
-		visitor:                  nil,
-		channelID:                "",
-		isOldVisitor:             false,
+		ctx:                     ctx,
+		Log:                     log.NewTLog("Visitor"),
+		user:                    user.New(ctx),
+		message:                 message.New(ctx),
+		group:                   group.New(ctx),
+		currentProjectKefuGroup: nil,
+		req:                     nil,
+		info:                    nil,
+		LoginInterval:           time.Minute * 30,
+		kefu:                    nil,
+		visitor:                 nil,
+		channelID:               "",
+		isOldVisitor:            false,
 	}
 
 	return v
@@ -176,20 +173,20 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 
 	// 查验项目uuid是否存在
 	// 注意：这里的项目以群组的形式存在，直接查询是否存在该群组
-	v.currentProjectGroupModel, err = v.groupDB.QueryWithGroupNo(req.ProjectUid)
+	v.currentProjectKefuGroup, err = v.group.GroupDB().QueryWithGroupNo(req.ProjectUid)
 	if err != nil {
 		v.Error("查询群信息错误", zap.Error(err))
 		ServerError(c)
 		return
 	}
-	if v.currentProjectGroupModel == nil {
+	if v.currentProjectKefuGroup == nil {
 		//项目不存在
 		c.ResponseErrorf("project not found", nil)
 		return
 	}
 
 	v.info = &Info{
-		Name:     fmt.Sprintf("%s的访客", v.currentProjectGroupModel.Name),
+		Name:     fmt.Sprintf("%s的访客", v.currentProjectKefuGroup.Name),
 		Ip:       ip,
 		Referer:  referer,
 		Region:   address.Country,
@@ -215,7 +212,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	if v.visitor != nil {
 		channelId := v.genChannelID()
 		// 同时检查其绑定的group是否存在
-		group, err := v.groupDB.QueryGroupWithGroupNo(channelId)
+		group, err := v.group.GroupDB().QueryGroupWithGroupNo(channelId)
 		if err != nil {
 			v.Error("查询群信息错误", zap.Error(err))
 			ServerError(c)
@@ -237,7 +234,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 				//顺便检查一下群名称是否正确
 				if group.Name != v.genGroupName() {
 					//修改一下群名称
-					err = v.groupDB.UpdateGroupName(group.GroupNo, v.genGroupName())
+					err = v.group.GroupDB().UpdateGroupName(group.GroupNo, v.genGroupName())
 					if err != nil {
 						v.Error("修改群昵称失败", zap.Error(err))
 						ServerError(c)

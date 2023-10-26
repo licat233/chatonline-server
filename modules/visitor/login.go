@@ -14,7 +14,7 @@ import (
 // 将游客绑定的用户进行登录操作
 func (v *Visitor) loginHandler() error {
 	//查询咨询群里的会员
-	members, err := v.groupDB.QueryMembersWithGroupNo(v.channelID)
+	members, err := v.group.GroupDB().QueryMembersWithGroupNo(v.channelID)
 	if err != nil {
 		v.Error("查询群会员错误", zap.Error(err))
 		return err
