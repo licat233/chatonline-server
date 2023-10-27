@@ -25,7 +25,7 @@ type VisitorGroupCreateReq struct {
 
 // 创建一个游客聊天群
 func (g *Group) VisitorGroupCreate(req *VisitorGroupCreateReq) (*Model, error) {
-	creator := req.CreateUid
+	creatorUid := req.CreateUid
 	creatorName := req.CreateName
 	creatorUser, err := g.userDB.QueryByUID(req.CreateUid)
 	if err != nil {
@@ -33,11 +33,11 @@ func (g *Group) VisitorGroupCreate(req *VisitorGroupCreateReq) (*Model, error) {
 		return nil, errors.New("查询创建者信息失败！")
 	}
 	if creatorUser == nil {
-		g.Error("创建者不存在！", zap.String("creator", creator))
+		g.Error("创建者不存在！", zap.String("creatorUid", creatorUid))
 		return nil, errors.New("创建者不存在！")
 	}
 
-	req.Members = util.RemoveRepeatedElement(append(req.Members, creator)) // 将创建者也加入成员内
+	req.Members = util.RemoveRepeatedElement(append(req.Members, creatorUid)) // 将创建者也加入成员内
 
 	// 查询成员用户信息
 	memberUserModels, err := g.userDB.QueryByUIDs(req.Members)
@@ -77,11 +77,13 @@ func (g *Group) VisitorGroupCreate(req *VisitorGroupCreateReq) (*Model, error) {
 		}
 	}()
 
+	avatar := fmt.Sprintf("%s/user/%s/avatar", g.ctx.GetConfig().External.APIBaseURL, creatorUid)
 	err = g.db.InsertTx(&Model{
 		GroupNo:             groupNo,
 		GroupType:           int(GroupTypeCommon),
 		Name:                groupName,
-		Creator:             creator,
+		Avatar:              avatar,
+		Creator:             creatorUid,
 		Status:              GroupStatusNormal,
 		Version:             version,
 		AllowViewHistoryMsg: int(common.GroupAllowViewHistoryMsgEnabled),
@@ -107,7 +109,7 @@ func (g *Group) VisitorGroupCreate(req *VisitorGroupCreateReq) (*Model, error) {
 		memberVersion := g.ctx.GenSeq(common.GroupMemberSeqKey)
 		realMemberUids = append(realMemberUids, memberUser.UID)
 		var role = MemberRoleCommon
-		if memberUser.UID == creator {
+		if memberUser.UID == creatorUid {
 			role = MemberRoleCreator
 		}
 		err = g.db.InsertMemberTx(&MemberModel{
@@ -115,7 +117,7 @@ func (g *Group) VisitorGroupCreate(req *VisitorGroupCreateReq) (*Model, error) {
 			UID:       memberUser.UID,
 			Role:      role,
 			Version:   memberVersion,
-			InviteUID: creator,
+			InviteUID: creatorUid,
 			Robot:     memberUser.Robot,
 			Status:    int(common.GroupMemberStatusNormal),
 			Vercode:   fmt.Sprintf("%s@%d", util.GenerUUID(), common.GroupMember),
@@ -138,7 +140,7 @@ func (g *Group) VisitorGroupCreate(req *VisitorGroupCreateReq) (*Model, error) {
 		Type:  wkevent.Message,
 		Data: &config.MsgGroupCreateReq{
 			GroupNo:     groupNo,
-			Creator:     creator,
+			Creator:     creatorUid,
 			CreatorName: creatorName,
 			Members:     userBaseVos,
 			Version:     version,
@@ -157,7 +159,7 @@ func (g *Group) VisitorGroupCreate(req *VisitorGroupCreateReq) (*Model, error) {
 			Type:  wkevent.Message,
 			Data: &config.MsgGroupCreateReq{
 				GroupNo:     groupNo,
-				Creator:     creator,
+				Creator:     creatorUid,
 				CreatorName: creatorName,
 				Members:     destroyUserBaseVos,
 				Version:     version,

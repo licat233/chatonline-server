@@ -116,7 +116,7 @@ func (v *Visitor) Route(r *wkhttp.WKHttp) {
 	{
 		g.POST("/login", v.Login)
 		g.POST("/message/sync", v.syncChannelMessage)
-		g.GET("/test", v.Test)
+		g.GET("/test/:name", v.Test)
 	}
 }
 
