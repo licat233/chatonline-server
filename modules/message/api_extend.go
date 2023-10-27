@@ -30,6 +30,15 @@ func (m *Message) SyncChannelMessage(c *wkhttp.Context, req *config.SyncChannelM
 	}()
 
 	user_uid := req.LoginUID
+	if user_uid == "" {
+		c.JSON(http.StatusOK, &syncChannelMessageResp{
+			StartMessageSeq: req.EndMessageSeq,
+			EndMessageSeq:   req.EndMessageSeq,
+			PullMode:        req.PullMode,
+			Messages:        make([]*MsgSyncResp, 0),
+		})
+		return
+	}
 
 	// 如果当前用户不在群内，则直接返回空消息数组
 	if req.ChannelType == common.ChannelTypeGroup.Uint8() {
@@ -50,16 +59,61 @@ func (m *Message) SyncChannelMessage(c *wkhttp.Context, req *config.SyncChannelM
 		}
 	}
 
-	req.LoginUID = user_uid
-	resp, err := m.ctx.IMSyncChannelMessage(*req)
+	var endMessageSeq uint32
+	startMessageSeq := req.StartMessageSeq
+	var baseMessages []*config.MessageResp
+	var hasMore int = 1 //1表示还有
+	var loadHandler func() (*config.SyncChannelMessageResp, error)
+	loadHandler = func() (*config.SyncChannelMessageResp, error) {
+		resp, err := m.ctx.IMSyncChannelMessage(*req)
+		if err != nil {
+			return nil, err
+		}
+		n := len(resp.Messages)
+		if n < req.Limit {
+			hasMore = 0
+		}
+		if n == 0 {
+			hasMore = 0
+			return resp, nil
+		}
+		if endMessageSeq == resp.Messages[n-1].MessageSeq {
+			hasMore = 0
+			return resp, nil
+		}
+		//过滤掉一些系统通知，只要常规的消息
+		for _, m := range resp.Messages {
+			if m.FromUID != "" && m.GetContentType() < 100 {
+				baseMessages = append(baseMessages, m)
+			}
+		}
+		endMessageSeq = resp.Messages[n-1].MessageSeq
+		m := len(baseMessages)
+		//数量不达标，则再次获取
+		if m == 0 || m < req.Limit {
+			req.StartMessageSeq = endMessageSeq
+			resp, err = loadHandler()
+			if err != nil {
+				return nil, err
+			}
+		}
+		return resp, nil
+	}
+
+	resp, err := loadHandler()
 	if err != nil {
 		m.Error("同步频道内的消息失败！", zap.Error(err), zap.String("req", util.ToJson(req)))
 		c.ResponseError(errors.New("同步频道内的消息失败！"))
 		return
 	}
-	fmt.Println("resp----messages-->", len(resp.Messages))
+	resp.Messages = baseMessages
+	resp.EndMessageSeq = endMessageSeq
+	resp.StartMessageSeq = startMessageSeq
 
-	c.Response(newSyncChannelMessageResp(resp, user_uid, req.DeviceUUID, req.ChannelID, req.ChannelType, m.messageExtraDB, m.messageUserExtraDB, m.messageReactionDB, m.channelOffsetDB, m.deviceOffsetDB))
+	// fmt.Println("resp----messages-->", len(resp.Messages))
+	data := newSyncChannelMessageResp(resp, user_uid, req.DeviceUUID, req.ChannelID, req.ChannelType, m.messageExtraDB, m.messageUserExtraDB, m.messageReactionDB, m.channelOffsetDB, m.deviceOffsetDB)
+	data.More = hasMore
+	c.Response(data)
 }
 
 func (m *Message) SendMessage(channelID string, channelType uint8, fromUID string, payload map[string]interface{}) error {

@@ -357,3 +357,51 @@ func (v *Visitor) GenVisitorIMToken() (string, error) {
 
 	return token, nil
 }
+
+func (v *Visitor) RemoveMembers(members []string) error {
+	if len(members) == 0 {
+		return nil
+	}
+	//排除自己
+	uids := []string{}
+	for _, uid := range members {
+		if uid != v.visitor.UID {
+			uids = append(uids, uid)
+		}
+	}
+	err := v.group.VisitorMemberRemove(&group.VisitorMemberRemoveReq{
+		OperatorUid:  v.visitor.UID,
+		OperatorName: OperatorName,
+		Members:      uids,
+		GroupNo:      v.channelID,
+	})
+	if err != nil {
+		v.Error("移除群会员失败", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+func (v *Visitor) AddMembers(members []string) error {
+	if len(members) == 0 {
+		return nil
+	}
+	//排除自己
+	uids := []string{}
+	for _, uid := range members {
+		if uid != v.visitor.UID {
+			uids = append(uids, uid)
+		}
+	}
+	err := v.group.VisitorMemberAdd(&group.VisitorMemberAddReq{
+		OperatorUid:  v.visitor.UID,
+		OperatorName: OperatorName,
+		Members:      uids,
+		GroupNo:      v.channelID,
+	})
+	if err != nil {
+		v.Error("添加群会员失败", zap.Error(err))
+		return err
+	}
+	return nil
+}

@@ -14,69 +14,87 @@ import (
 
 // 根据当前游客情况，分配一个客服出来
 func (v *Visitor) assignKefu() (*user.Model, error) {
+	hasOldKefu := false
+	var oldKefu *user.Model
+	var oldKefuUids []string
 	//如果是老访客
 	if v.isOldVisitor {
-		//如果不能重新分配客服，则查询群里有没有客服即可，存在直接返回
-		if !v.req.RestKefu {
-			members, err := v.group.GroupDB().QueryMembersWithGroupNo(v.channelID)
-			if err != nil {
-				v.Error("查询群成员错误", zap.Error(err))
-				return nil, err
-			}
-			//除了自己
-			kefuUid := ""
-			for _, member := range members {
-				if member.UID != v.visitor.UID {
-					kefuUid = member.UID
-					break
-				}
-			}
-			if kefuUid != "" {
-				kefu, err := v.user.Db().QueryByUID(kefuUid)
-				if err != nil {
-					v.Error("查询user错误", zap.Error(err))
-					return nil, err
-				}
-				if kefu != nil && kefu.Status == 1 {
-					return kefu, nil
-				}
-			}
-		}
-		//查找群里在线的客服
-		kefuUids, err := v.getOnlineUsersFromGroup(v.channelID, v.visitor.UID)
+		var kefuUids []string
+		var oldUsers []*user.Model
+		//检查群里是否有可用客服
+		kefuMembers, err := v.group.GroupDB().QueryKefuMembers(v.channelID, v.visitor.UID)
 		if err != nil {
 			v.Error("查询群成员错误", zap.Error(err))
 			return nil, err
 		}
-		if len(kefuUids) > 0 {
-			//群里存在在线的客服，不用分配，随便返回一个即可
-			for _, kefuUid := range kefuUids {
-				kefu, err := v.user.Db().QueryByUID(kefuUid)
+		if len(kefuMembers) != 0 {
+			okayUids := []string{}
+			badUids := []string{}
+			for _, k := range kefuMembers {
+				oldKefuUids = append(oldKefuUids, k.UID)
+				user, err := v.user.Db().QueryByUID(k.UID)
 				if err != nil {
-					v.Error("查询用户信息错误", zap.Error(err))
+					v.Error("查询user错误", zap.Error(err))
 					return nil, err
 				}
-				if kefu == nil {
-					//不存在
-					continue
+				if user != nil {
+					oldUsers = append(oldUsers, user)
+					if user.Status == 1 {
+						//老客服是可用的
+						oldKefu = user
+						okayUids = append(okayUids, k.UID)
+					} else {
+						//老客服不可用
+						badUids = append(badUids, k.UID)
+					}
 				}
-				if kefu.Status == 0 {
-					continue
-				}
-				return kefu, nil
+				//不存在不用管
 			}
-			//到了这一步，表示没有状态可用的在线客服
-			//移除他们
-			err = v.group.VisitorMemberRemove(&group.VisitorMemberRemoveReq{
-				OperatorUid:  v.visitor.UID,
-				OperatorName: OperatorName,
-				Members:      kefuUids,
-				GroupNo:      v.channelID,
-			})
+			//移除不能用的kefu
+			if len(badUids) != 0 {
+				//踢出群
+				err = v.RemoveMembers(badUids)
+				if err != nil {
+					return nil, err
+				}
+			}
+			hasOldKefu = len(okayUids) != 0
+			kefuUids = okayUids
+		}
+		//如果不能重新分配客服，则查询群里有没有可用的客服即可，存在直接返回，不管在不在线
+		if !v.req.RestKefu && hasOldKefu {
+			return oldKefu, nil
+		}
+		//如果存在老客服，则查找群里在线的老客服
+		if hasOldKefu {
+			//查找在线的客服
+			onlineUids, err := v.getOnlineUsers(kefuUids)
 			if err != nil {
-				v.Error("移除群成员错误", zap.Error(err))
 				return nil, err
 			}
+			//群里存在在线的客服，不用分配，随便返回一个即可
+			if len(onlineUids) != 0 {
+				uid := onlineUids[0]
+				for _, user := range oldUsers {
+					if user.UID == uid {
+						return user, nil
+					}
+				}
+				//找不到，到数据库里找一下，确保不会漏掉
+				user, err := v.user.Db().QueryByUID(uid)
+				if err != nil {
+					v.Error("查找user错误", zap.Error(err))
+					return nil, err
+				}
+				if user != nil {
+					return user, nil
+				}
+				//到了这一步，如果还是找不到，那就说明程序有问题
+				v.Error("程序出现业务逻辑错误", zap.Error(err))
+				return nil, errors.New("程序出现业务逻辑错误")
+			}
+			//如果群里的老客服，没有一个在线的，则从客服群里找一个过来
+			//先不踢出群，确保客服群存在在线的客服，再踢出群
 		}
 	}
 	//如果还是没有，那就从项目群里取一个在线的客服
@@ -90,6 +108,10 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 		return nil, err
 	}
 	if len(members) == 0 {
+		//如果有老客服，则返回老客服
+		if hasOldKefu {
+			return oldKefu, nil
+		}
 		//没有客服可用
 		return nil, errors.New("the current project does not have customer service")
 	}
@@ -105,7 +127,11 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 	}
 	//如果没有在线的uid
 	if len(onlineUids) == 0 {
-		//则默认取所有离线客服
+		//如果有老客服，则返回老客服
+		if hasOldKefu {
+			return oldKefu, nil
+		}
+		//如果没有客服，则默认取所有离线客服
 		onlineUids = allUids
 	}
 
@@ -117,9 +143,15 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 	}
 	//没有可用客服
 	if len(kefuList) == 0 {
+		//如果有老客服，则返回老客服
+		if hasOldKefu {
+			return oldKefu, nil
+		}
 		//没有客服可用
 		return nil, errors.New("the current project does not have customer service")
 	}
+
+	//到了这一步，表示客服群里有在线的客服
 
 	var kefuMembers []*group.MemberModel
 	//筛选出可用会员
@@ -204,35 +236,49 @@ func (v *Visitor) assignKefu() (*user.Model, error) {
 	randomMember := noMarkMembers[randomIndex]
 	//找出对应的user
 	uid := randomMember.UID
+	var kefu *user.Model
 	for _, user := range kefuList {
 		if user.UID == uid {
 			if err := addRemark(randomMember); err != nil {
 				return nil, err
 			}
-			return user, nil
+			kefu = user
+			break
 		}
 	}
 
-	//找不到？
-	v.Error("无对应的kefu用户")
-	return nil, errors.New("system error! group user does not exist")
+	if kefu == nil {
+		//找不到？
+		v.Error("无对应的kefu用户")
+		return nil, errors.New("system error! group user does not exist")
+	}
+
+	//已找到客服，则开始清理咨询群里的老客服们
+	if len(oldKefuUids) != 0 {
+		err = v.RemoveMembers(oldKefuUids)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return kefu, nil
 }
 
 // 查找群里在线的客服
-func (v *Visitor) getOnlineUsersFromGroup(groupNo string, visitorUID string) ([]string, error) {
-	//查找聊天群里所有的客服
-	kefuUids, err := v.group.GroupDB().QueryKefuUidMembers(groupNo, visitorUID)
-	if err != nil {
-		v.Error("查询群成员错误", zap.Error(err))
-		return nil, err
-	}
-	//查找在线的客服
-	onlineUids, err := v.getOnlineUsers(kefuUids)
-	if err != nil {
-		return nil, err
-	}
-	return onlineUids, nil
-}
+// func (v *Visitor) getOnlineUsersFromGroup(groupNo string, visitorUID string) ([]string, error) {
+// 	//查找聊天群里所有的客服
+// 	kefuUids, err := v.group.GroupDB().QueryKefuUidMembers(groupNo, visitorUID)
+// 	if err != nil {
+// 		v.Error("查询群成员错误", zap.Error(err))
+// 		return nil, err
+// 	}
+// 	//查找在线的客服
+// 	onlineUids, err := v.getOnlineUsers(kefuUids)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return onlineUids, nil
+// }
 
 // 查询在线的users， 10分钟内离线的也算是在线客服
 func (v *Visitor) getOnlineUsers(uids []string) ([]string, error) {

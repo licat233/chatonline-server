@@ -3,7 +3,6 @@ package visitor
 import (
 	"fmt"
 
-	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/group"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/common"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/config"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/pkg/util"
@@ -31,27 +30,15 @@ func (v *Visitor) loginHandler() error {
 
 	//查看该客服是否在群里，如果不再则拉入，并把其它客服踢出群
 	if !hasKefu {
-		err = v.group.VisitorMemberAdd(&group.VisitorMemberAddReq{
-			OperatorUid:  v.visitor.UID,
-			OperatorName: OperatorName,
-			Members: []string{
-				v.kefu.UID,
-			},
-			GroupNo: v.channelID,
+		err = v.AddMembers([]string{
+			v.kefu.UID,
 		})
 		if err != nil {
 			return err
 		}
-		if len(otherKefus) != 0 {
-			err = v.group.VisitorMemberRemove(&group.VisitorMemberRemoveReq{
-				OperatorUid:  v.visitor.UID,
-				OperatorName: OperatorName,
-				Members:      otherKefus,
-				GroupNo:      v.channelID,
-			})
-			if err != nil {
-				return err
-			}
+		err = v.RemoveMembers(otherKefus)
+		if err != nil {
+			return err
 		}
 	}
 	go v.sendOnlineMsgToKefu()
