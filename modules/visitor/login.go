@@ -2,6 +2,7 @@ package visitor
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/common"
@@ -46,7 +47,8 @@ func (v *Visitor) loginHandler() error {
 	go v.sendOnlineMsgToKefu()
 	//发送客服不在线的信息给客服
 	if !v.KefuOnline {
-		go v.sendKefuLeave("感謝您光臨！很抱歉，我們的客服目前不在線上。如果您有任何問題或需要幫助，請在下方留言，我們會儘快回覆您的訊息。感謝您的耐心等待。")
+		content := os.Getenv("TS_OFFLINE_MESSAGE ")
+		go v.sendKefuLeave(content)
 	}
 	return nil
 }
