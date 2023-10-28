@@ -27,10 +27,10 @@ type Resp struct {
 }
 
 type visitorLoginResp struct {
-	IMToken   string `json:"im_token"`    //游客登录im的token
-	ChannelID string `json:"channel_uid"` //聊天频道ID
-	UserUid   string `json:"user_uid"`    //游客绑定的user_uid
-	Online    bool   `json:"online"`      //该游客的客服是否在线
+	IMToken    string `json:"im_token"`    //游客登录im的token
+	ChannelID  string `json:"channel_uid"` //聊天频道ID
+	UserUid    string `json:"user_uid"`    //游客绑定的user_uid
+	KefuOnline bool   `json:"kefu_online"` //该游客的客服是否在线
 }
 
 type visitorLoginReq struct {
@@ -316,10 +316,10 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 
 	//返回凭证，游客凭此凭证登录即可
 	loginInfo := &visitorLoginResp{
-		IMToken:   token,
-		ChannelID: v.channelID,
-		UserUid:   v.visitor.UID,
-		Online:    v.KefuOnline,
+		IMToken:    token,
+		ChannelID:  v.channelID,
+		UserUid:    v.visitor.UID,
+		KefuOnline: v.KefuOnline,
 	}
 	if isEncrypt {
 		encryptData := EncryptData(loginInfo)
