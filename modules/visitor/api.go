@@ -30,6 +30,7 @@ type visitorLoginResp struct {
 	IMToken   string `json:"im_token"`    //游客登录im的token
 	ChannelID string `json:"channel_uid"` //聊天频道ID
 	UserUid   string `json:"user_uid"`    //游客绑定的user_uid
+	Online    bool   `json:"online"`      //该游客的客服是否在线
 }
 
 type visitorLoginReq struct {
@@ -89,6 +90,7 @@ type Visitor struct {
 
 	channelID    string
 	isOldVisitor bool
+	KefuOnline   bool
 }
 
 func New(ctx *config.Context) *Visitor {
@@ -106,6 +108,7 @@ func New(ctx *config.Context) *Visitor {
 		visitor:                 nil,
 		channelID:               "",
 		isOldVisitor:            false,
+		KefuOnline:              true,
 	}
 
 	return v
@@ -266,6 +269,20 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		return
 	}
 
+	onlineInfo, err := v.user.OnlineDB().QueryOnlineWithUID(v.kefu.UID)
+	if err != nil {
+		v.Error("查询kefu在线信息出错", zap.Error(err))
+		ServerError(c)
+		return
+	}
+	if onlineInfo == nil {
+		//查找不到
+		//默认在线
+		v.KefuOnline = true
+	} else {
+		v.KefuOnline = onlineInfo.IsOnline()
+	}
+
 	if !v.isOldVisitor {
 		err = v.registerHandler(c)
 		if err != nil {
@@ -302,6 +319,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		IMToken:   token,
 		ChannelID: v.channelID,
 		UserUid:   v.visitor.UID,
+		Online:    v.KefuOnline,
 	}
 	if isEncrypt {
 		encryptData := EncryptData(loginInfo)
