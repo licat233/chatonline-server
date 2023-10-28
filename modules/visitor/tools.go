@@ -475,3 +475,25 @@ func RemoteLanguage(r *http.Request) (languages []string) {
 
 	return
 }
+
+// 判断某个字符串是不是图片的url
+func IsImageURL(input string) bool {
+	// 将URL字符串解析为URL对象
+	u, err := url.Parse(input)
+	if err != nil {
+		return false
+	}
+
+	// 获取URL路径的文件名部分
+	filename := u.Path[strings.LastIndex(u.Path, "/")+1:]
+
+	// 检查文件名的扩展名是否为图片格式
+	imageExtensions := []string{".jpg", ".jpeg", ".png", ".gif"}
+	for _, ext := range imageExtensions {
+		if strings.HasSuffix(strings.ToLower(filename), ext) {
+			return true
+		}
+	}
+
+	return false
+}

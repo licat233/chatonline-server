@@ -3,6 +3,7 @@ package visitor
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/base/event"
@@ -73,8 +74,6 @@ func (v *Visitor) registerHandler(c *wkhttp.Context) error {
 
 		//回调事件
 		if err = tx.Commit(); err != nil {
-			// tx.Rollback()
-			// v.Error("数据库事务提交失败", zap.Error(err))
 			return err
 		}
 		v.ctx.EventCommit(eventID)
@@ -118,6 +117,8 @@ func (v *Visitor) registerHandler(c *wkhttp.Context) error {
 	v.info.Name = groupName
 
 	// go v.SendVisitorInfo() //不用发了，公告有显示
+	//发送自动回复消息给游客
+	go v.sendAutoReply()
 	return nil
 }
 
@@ -218,4 +219,13 @@ func (v *Visitor) genVisitorInfo() string {
 	sentContent = fmt.Sprintf("%s\n浏览器: %s", sentContent, v.info.Browser)
 	sentContent = fmt.Sprintf("%s\n语言: %s", sentContent, v.info.Language)
 	return sentContent
+}
+
+func (v *Visitor) sendAutoReply() error {
+	// 自动回复内容
+	autoReplyContent := strings.TrimSpace(v.currentProjectKefuGroup.Notice)
+	if len(autoReplyContent) == 0 {
+		return nil
+	}
+	return v.sendToVisitor(autoReplyContent)
 }

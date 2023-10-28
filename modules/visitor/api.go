@@ -31,6 +31,7 @@ type visitorLoginResp struct {
 	ChannelID  string `json:"channel_uid"` //聊天频道ID
 	UserUid    string `json:"user_uid"`    //游客绑定的user_uid
 	KefuOnline bool   `json:"kefu_online"` //该游客的客服是否在线
+	// AutoReplyContent string `json:"autoreply_content"` //自动回复消息内容，也就是项目群公告
 }
 
 type visitorLoginReq struct {
@@ -419,6 +420,35 @@ func (v *Visitor) AddMembers(members []string) error {
 	})
 	if err != nil {
 		v.Error("添加群会员失败", zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+// 发送消息给游客
+func (v *Visitor) sendToVisitor(content string) error {
+	content = strings.TrimSpace(content)
+	if len(content) == 0 {
+		return nil
+	}
+	contentType := common.Text
+	if IsImageURL(content) {
+		contentType = common.Image
+	}
+	err := v.ctx.SendMessage(&config.MsgSendReq{
+		FromUID:     v.kefu.UID,
+		ChannelID:   v.channelID,
+		ChannelType: CurrentChannelType.Uint8(),
+		Payload: []byte(util.ToJson(map[string]interface{}{
+			"content": content,
+			"type":    contentType,
+		})),
+		Header: config.MsgHeader{
+			RedDot: 1,
+		},
+	})
+	if err != nil {
+		v.Error("发送消息给游客失败", zap.Error(err))
 		return err
 	}
 	return nil
