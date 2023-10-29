@@ -2,12 +2,10 @@ package message
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/common"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/config"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/pkg/util"
-	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/pkg/wkhttp"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
@@ -21,23 +19,23 @@ func (co *Conversation) GetUserConversationMaxVersion(uid string) (int64, error)
 }
 
 // 同步频道消息
-func (m *Message) SyncChannelMessage(c *wkhttp.Context, req *config.SyncChannelMessageReq) {
+func (m *Message) SyncChannelMessage(req *config.SyncChannelMessageReq) (respData *syncChannelMessageResp, e error) {
 	defer func() {
-		if e := recover(); e != nil {
-			m.Error("出现系统错误", zap.Error(errors.New(fmt.Sprint(e))))
-			c.ResponseErrorWithStatus(errors.New("server error"), 500)
+		if fail := recover(); fail != nil {
+			m.Error("出现系统错误", zap.Error(errors.New(fmt.Sprint(fail))))
+			e = errors.New("server error")
+			// c.ResponseErrorWithStatus(errors.New("server error"), 500)
 		}
 	}()
 
 	user_uid := req.LoginUID
 	if user_uid == "" {
-		c.JSON(http.StatusOK, &syncChannelMessageResp{
+		return &syncChannelMessageResp{
 			StartMessageSeq: req.EndMessageSeq,
 			EndMessageSeq:   req.EndMessageSeq,
 			PullMode:        req.PullMode,
 			Messages:        make([]*MsgSyncResp, 0),
-		})
-		return
+		}, nil
 	}
 
 	// 如果当前用户不在群内，则直接返回空消息数组
@@ -45,17 +43,15 @@ func (m *Message) SyncChannelMessage(c *wkhttp.Context, req *config.SyncChannelM
 		exist, err := m.groupService.ExistMember(req.ChannelID, user_uid)
 		if err != nil {
 			m.Error("查询是否在群内存在失败！", zap.Error(err))
-			c.ResponseError(errors.New("查询是否在群内存在失败！"))
-			return
+			return nil, err
 		}
 		if !exist {
-			c.JSON(http.StatusOK, &syncChannelMessageResp{
+			return &syncChannelMessageResp{
 				StartMessageSeq: req.EndMessageSeq,
 				EndMessageSeq:   req.EndMessageSeq,
 				PullMode:        req.PullMode,
 				Messages:        make([]*MsgSyncResp, 0),
-			})
-			return
+			}, nil
 		}
 	}
 
@@ -103,8 +99,7 @@ func (m *Message) SyncChannelMessage(c *wkhttp.Context, req *config.SyncChannelM
 	resp, err := loadHandler()
 	if err != nil {
 		m.Error("同步频道内的消息失败！", zap.Error(err), zap.String("req", util.ToJson(req)))
-		c.ResponseError(errors.New("同步频道内的消息失败！"))
-		return
+		return nil, err
 	}
 	resp.Messages = baseMessages
 	resp.EndMessageSeq = endMessageSeq
@@ -113,7 +108,7 @@ func (m *Message) SyncChannelMessage(c *wkhttp.Context, req *config.SyncChannelM
 	// fmt.Println("resp----messages-->", len(resp.Messages))
 	data := newSyncChannelMessageResp(resp, user_uid, req.DeviceUUID, req.ChannelID, req.ChannelType, m.messageExtraDB, m.messageUserExtraDB, m.messageReactionDB, m.channelOffsetDB, m.deviceOffsetDB)
 	data.More = hasMore
-	c.Response(data)
+	return data, nil
 }
 
 func (m *Message) SendMessage(channelID string, channelType uint8, fromUID string, payload map[string]interface{}) error {

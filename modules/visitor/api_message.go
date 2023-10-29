@@ -3,8 +3,10 @@ package visitor
 import (
 	"errors"
 
+	"github.com/TangSengDaoDao/TangSengDaoDaoServer/tools"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/config"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/pkg/wkhttp"
+	"go.uber.org/zap"
 )
 
 type syncChannelMessageReq struct {
@@ -29,7 +31,7 @@ func (s *syncChannelMessageReq) ValueCheck() error {
 // 同步客服频道消息
 func (v *Visitor) syncChannelMessage(c *wkhttp.Context) {
 	var req syncChannelMessageReq
-	_, err := UnmarshalReqData(c, &req)
+	isEncrypt, err := tools.UnmarshalReqData(c, &req)
 	if err != nil {
 		c.ResponseError(err)
 		return
@@ -50,7 +52,6 @@ func (v *Visitor) syncChannelMessage(c *wkhttp.Context) {
 		c.ResponseErrorWithStatus(errors.New("authorization fail"), 401)
 		return
 	}
-
 	in := &config.SyncChannelMessageReq{
 		LoginUID:        v.visitor.UID,
 		DeviceUUID:      "",
@@ -61,6 +62,16 @@ func (v *Visitor) syncChannelMessage(c *wkhttp.Context) {
 		Limit:           req.Limit,
 		PullMode:        req.PullMode,
 	}
-
-	v.message.SyncChannelMessage(c, in)
+	msgList, err := v.message.SyncChannelMessage(in)
+	if err != nil {
+		v.Error("获取同频道消息失败", zap.Error(err))
+		tools.ServerError(c)
+		return
+	}
+	if isEncrypt {
+		encryptData := tools.EncryptData(msgList)
+		c.Writer.Write(encryptData)
+	} else {
+		c.Response(msgList)
+	}
 }

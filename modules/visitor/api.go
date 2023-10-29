@@ -10,6 +10,7 @@ import (
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/group"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/message"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/user"
+	"github.com/TangSengDaoDao/TangSengDaoDaoServer/tools"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/common"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/config"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/pkg/log"
@@ -126,7 +127,7 @@ func (v *Visitor) Route(r *wkhttp.WKHttp) {
 
 func (v *Visitor) Login(c *wkhttp.Context) {
 	var req visitorLoginReq
-	isEncrypt, err := UnmarshalReqData(c, &req)
+	isEncrypt, err := tools.UnmarshalReqData(c, &req)
 	if err != nil {
 		c.ResponseError(err)
 		return
@@ -157,20 +158,20 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		//如果是本地链接，拒绝访问
 		//如果是模拟器进行请求，拒绝访问
 		//如果是PC平台，但显示却是手机平台，那就表示不正常的请求，直接拒绝响应
-		if IsLocalLink(referer) || ua.Mobile() == IsDesktopDevice(req.Platform) {
+		if tools.IsLocalLink(referer) || ua.Mobile() == tools.IsDesktopDevice(req.Platform) {
 			c.ResponseErrorWithStatus(errors.New("abnormal requests"), 403)
 			return
 		}
 	}
 
 	// 获取语言
-	languages := strings.Join(RemoteLanguage(c.Context.Request), ",")
+	languages := strings.Join(tools.RemoteLanguage(c.Context.Request), ",")
 
 	// 获取ip
-	ip := RemoteIp(c.Context.ClientIP())
+	ip := tools.RemoteIp(c.Context.ClientIP())
 
 	// 解析 ip 信息
-	address := QueryAddress(ip)
+	address := tools.QueryAddress(ip)
 
 	// 浏览器信息
 	browser, _ := ua.Browser()
@@ -180,7 +181,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	v.currentProjectKefuGroup, err = v.group.GroupDB().QueryWithGroupNo(req.ProjectUid)
 	if err != nil {
 		v.Error("查询群信息错误", zap.Error(err))
-		ServerError(c)
+		tools.ServerError(c)
 		return
 	}
 	if v.currentProjectKefuGroup == nil {
@@ -207,7 +208,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		v.visitor, err = v.user.Db().QueryByUID(req.UserUid)
 		if err != nil {
 			v.Error("查询游客信息错误", zap.Error(err))
-			ServerError(c)
+			tools.ServerError(c)
 			return
 		}
 	}
@@ -219,7 +220,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		group, err := v.group.GroupDB().QueryGroupWithGroupNo(channelId)
 		if err != nil {
 			v.Error("查询群信息错误", zap.Error(err))
-			ServerError(c)
+			tools.ServerError(c)
 			return
 		}
 		//如果存在，还要检查自己是否在群里面
@@ -227,7 +228,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 			exist, err := v.group.Service().ExistMember(group.GroupNo, v.visitor.UID)
 			if err != nil {
 				v.Error("查询是否在群内失败！", zap.Error(err))
-				ServerError(c)
+				tools.ServerError(c)
 				return
 			}
 			//如果自己在里面，则设为老游客
@@ -241,7 +242,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 					err = v.group.GroupDB().UpdateGroupName(group.GroupNo, v.genGroupName())
 					if err != nil {
 						v.Error("修改群昵称失败", zap.Error(err))
-						ServerError(c)
+						tools.ServerError(c)
 						return
 					}
 				}
@@ -261,19 +262,19 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	v.kefu, err = v.assignKefu()
 	if err != nil {
 		v.Error("分配客服出现错误", zap.Error(err))
-		ServerError(c)
+		tools.ServerError(c)
 		return
 	}
 	if v.kefu == nil {
 		v.Error("游客未分配到客服")
-		ServerError(c)
+		tools.ServerError(c)
 		return
 	}
 
 	onlineInfo, err := v.user.OnlineDB().QueryOnlineWithUID(v.kefu.UID)
 	if err != nil {
 		v.Error("查询kefu在线信息出错", zap.Error(err))
-		ServerError(c)
+		tools.ServerError(c)
 		return
 	}
 	if onlineInfo == nil {
@@ -288,14 +289,14 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		err = v.registerHandler(c)
 		if err != nil {
 			v.Error("游客注册失败", zap.Error(err))
-			ServerError(c)
+			tools.ServerError(c)
 			return
 		}
 	} else {
 		err = v.loginHandler()
 		if err != nil {
 			v.Error("游客登录失败", zap.Error(err))
-			ServerError(c)
+			tools.ServerError(c)
 			return
 		}
 	}
@@ -303,7 +304,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	token, err := v.GenVisitorIMToken()
 	if err != nil {
 		v.Error("获取token失败", zap.Error(err))
-		ServerError(c)
+		tools.ServerError(c)
 		return
 	}
 
@@ -311,7 +312,7 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 	err = v.ctx.Cache().SetAndExpire(v.redisLastLoginTimeKey(), time.Now().String(), v.LoginInterval)
 	if err != nil {
 		v.Error("redis保存登录时间失败", zap.Error(err))
-		ServerError(c)
+		tools.ServerError(c)
 		return
 	}
 
@@ -323,15 +324,15 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 		KefuOnline: v.KefuOnline,
 	}
 	if isEncrypt {
-		encryptData := EncryptData(loginInfo)
-		c.Writer.WriteString(encryptData)
+		encryptData := tools.EncryptData(loginInfo)
+		c.Writer.Write(encryptData)
 	} else {
 		c.Response(loginInfo)
 	}
 }
 
 func (v *Visitor) genChannelID() string {
-	return NewUUID(v.visitor.UID, v.req.ProjectUid)
+	return tools.NewUUID(v.visitor.UID, v.req.ProjectUid)
 }
 
 func (v *Visitor) registerIMToken(token string) (err error) {
@@ -432,7 +433,7 @@ func (v *Visitor) sendToVisitor(content string) error {
 		return nil
 	}
 	contentType := common.Text
-	if IsImageURL(content) {
+	if tools.IsImageURL(content) {
 		contentType = common.Image
 	}
 	err := v.ctx.SendMessage(&config.MsgSendReq{
