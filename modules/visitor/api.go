@@ -27,14 +27,22 @@ type Resp struct {
 	Data any `json:"data"`
 }
 
-type visitorLoginResp struct {
-	IMToken    string `json:"im_token"`    //游客登录im的token
-	ChannelID  string `json:"channel_uid"` //聊天频道ID
-	UserUid    string `json:"user_uid"`    //游客绑定的user_uid
-	KefuOnline bool   `json:"kefu_online"` //该游客的客服是否在线
-	// AutoReplyContent string `json:"autoreply_content"` //自动回复消息内容，也就是项目群公告
+// 客服信息
+type KefuInfo struct {
+	UID    string `json:"uid"`    //客服的uid
+	Name   string `json:"name"`   //客服的name
+	Online bool   `json:"online"` //客服的在线状态
 }
 
+// 游客登录响应
+type visitorLoginResp struct {
+	IMToken   string   `json:"im_token"`    //游客登录im的token
+	ChannelID string   `json:"channel_uid"` //聊天频道ID
+	UserUid   string   `json:"user_uid"`    //游客绑定的user_uid
+	KefuInfo  KefuInfo `json:"kefu_info"`   //客服信息
+}
+
+// 游客登录请求
 type visitorLoginReq struct {
 	Platform   string `json:"platform"`    //客户端平台
 	Referer    string `json:"referer"`     //来源网站
@@ -318,10 +326,14 @@ func (v *Visitor) Login(c *wkhttp.Context) {
 
 	//返回凭证，游客凭此凭证登录即可
 	loginInfo := &visitorLoginResp{
-		IMToken:    token,
-		ChannelID:  v.channelID,
-		UserUid:    v.visitor.UID,
-		KefuOnline: v.KefuOnline,
+		IMToken:   token,
+		ChannelID: v.channelID,
+		UserUid:   v.visitor.UID,
+		KefuInfo: KefuInfo{
+			UID:    v.kefu.UID,
+			Name:   v.kefu.Name,
+			Online: v.KefuOnline,
+		},
 	}
 	if isEncrypt {
 		encryptData := tools.EncryptData(loginInfo)
