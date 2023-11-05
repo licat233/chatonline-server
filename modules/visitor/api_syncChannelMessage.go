@@ -3,14 +3,31 @@ package visitor
 import (
 	"errors"
 
+	"strings"
+
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/tools"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/config"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/pkg/wkhttp"
 	"go.uber.org/zap"
 )
 
+type SyncChannelMessageLogic struct {
+	*Visitor
+}
+
+func NewSyncChannelMessageLogic(v *Visitor) *SyncChannelMessageLogic {
+	return &SyncChannelMessageLogic{
+		Visitor: v,
+	}
+}
+
+func (v *Visitor) SyncChannelMessage(c *wkhttp.Context) {
+	NewSyncChannelMessageLogic(v).Handler(c)
+}
+
 type syncChannelMessageReq struct {
-	IMToken         string          `json:"im_token"`          // 确保有权限拉取该频道的消息
+	IMToken string `json:"im_token"` // 确保有权限拉取该频道的消息，必须已经登陆
+	// UserUid         string          `json:"user_uid"`          // 用户UID，由Token查出
 	ChannelID       string          `json:"channel_uid"`       // 聊天频道ID
 	StartMessageSeq uint32          `json:"start_message_seq"` // 开始序列号
 	EndMessageSeq   uint32          `json:"end_message_seq"`   // 结束序列号
@@ -19,17 +36,17 @@ type syncChannelMessageReq struct {
 }
 
 func (s *syncChannelMessageReq) ValueCheck() error {
-	if s.ChannelID == "" {
+	if s.ChannelID = strings.TrimSpace(s.ChannelID); s.ChannelID == "" {
 		return errors.New("the requested data format is incorrect1")
 	}
-	if s.IMToken == "" {
+	if s.IMToken = strings.TrimSpace(s.IMToken); s.IMToken == "" {
 		return errors.New("the requested data format is incorrect1")
 	}
 	return nil
 }
 
 // 同步客服频道消息
-func (v *Visitor) syncChannelMessage(c *wkhttp.Context) {
+func (l *SyncChannelMessageLogic) Handler(c *wkhttp.Context) {
 	var req syncChannelMessageReq
 	isEncrypt, err := tools.UnmarshalReqData(c, &req)
 	if err != nil {
@@ -42,18 +59,18 @@ func (v *Visitor) syncChannelMessage(c *wkhttp.Context) {
 	}
 
 	//校验token
-	token, err := v.GenVisitorIMToken()
+	visitorUID, err := l.getVisitorUid(req.IMToken)
 	if err != nil {
 		c.ResponseErrorWithStatus(err, 500)
 		return
 	}
 
-	if token != req.IMToken {
+	if visitorUID == "" {
 		c.ResponseErrorWithStatus(errors.New("authorization fail"), 401)
 		return
 	}
 	in := &config.SyncChannelMessageReq{
-		LoginUID:        v.visitor.UID,
+		LoginUID:        visitorUID,
 		DeviceUUID:      "",
 		ChannelID:       req.ChannelID,
 		ChannelType:     CurrentChannelType.Uint8(),
@@ -62,9 +79,9 @@ func (v *Visitor) syncChannelMessage(c *wkhttp.Context) {
 		Limit:           req.Limit,
 		PullMode:        req.PullMode,
 	}
-	msgList, err := v.message.SyncChannelMessage(in)
+	msgList, err := l.message.SyncChannelMessage(in)
 	if err != nil {
-		v.Error("获取同频道消息失败", zap.Error(err))
+		l.Error("获取同频道消息失败", zap.Error(err))
 		tools.ServerError(c)
 		return
 	}

@@ -13,7 +13,7 @@ import (
 )
 
 // 根据当前游客情况，分配一个客服出来
-func (v *Visitor) assignKefu() (*user.Model, error) {
+func (v *LoginLogic) assignKefu() (*user.Model, error) {
 	hasOldKefu := false
 	var oldKefu *user.Model
 	var oldKefuUids []string

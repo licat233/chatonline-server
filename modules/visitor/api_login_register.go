@@ -18,7 +18,7 @@ import (
 )
 
 // 创建游客
-func (v *Visitor) registerHandler(c *wkhttp.Context) error {
+func (v *LoginLogic) registerHandler(c *wkhttp.Context) error {
 	var err error
 	v.visitor, err = v.createUserModel()
 	if err != nil {
@@ -123,12 +123,12 @@ func (v *Visitor) registerHandler(c *wkhttp.Context) error {
 }
 
 // 生成群名称，前提是visitor存在
-func (v *Visitor) genGroupName() string {
+func (v *LoginLogic) genGroupName() string {
 	return fmt.Sprintf("%s%d", v.info.Name, v.visitor.Id)
 }
 
 // 创建游客用户数据
-func (v *Visitor) createUserModel() (*user.Model, error) {
+func (v *LoginLogic) createUserModel() (*user.Model, error) {
 	var (
 		shortNo = ""
 		err     error
@@ -142,7 +142,7 @@ func (v *Visitor) createUserModel() (*user.Model, error) {
 	} else {
 		shortNo = util.Ten2Hex(time.Now().UnixNano())
 	}
-	uid := v.ctx.GetConfig().VisitorUIDPrefix + util.GenerUUID()
+	uid := v.ctx.GetConfig().VisitorUIDPrefix + genUuid()
 	return &user.Model{
 		AppID:             "",
 		UID:               uid,
@@ -184,7 +184,7 @@ func (v *Visitor) createUserModel() (*user.Model, error) {
 }
 
 // 发送游客拜访信息到群频道，不发也可以，因为已经在群公告显示了游客信息
-func (v *Visitor) SendVisitorInfo() {
+func (v *LoginLogic) SendVisitorInfo() {
 	var sentContent string = v.genVisitorInfo()
 
 	//发送游客的来访信息给客服
@@ -205,7 +205,7 @@ func (v *Visitor) SendVisitorInfo() {
 	}
 }
 
-func (v *Visitor) genVisitorInfo() string {
+func (v *LoginLogic) genVisitorInfo() string {
 	var sentContent string
 	sentContent = fmt.Sprintf("来访游客id: %d", v.info.Id)
 	sentContent = fmt.Sprintf("%s\nip: %s", sentContent, v.info.Ip)
@@ -221,7 +221,7 @@ func (v *Visitor) genVisitorInfo() string {
 	return sentContent
 }
 
-func (v *Visitor) sendAutoReply() error {
+func (v *LoginLogic) sendAutoReply() error {
 	// 自动回复内容
 	autoReplyContent := strings.TrimSpace(v.currentProjectKefuGroup.Notice)
 	if len(autoReplyContent) == 0 {

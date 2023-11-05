@@ -1,7 +1,6 @@
 package visitor
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
@@ -13,7 +12,7 @@ import (
 
 // 游客登录
 // 将游客绑定的用户进行登录操作
-func (v *Visitor) loginHandler() error {
+func (v *LoginLogic) loginHandler() error {
 	//查询咨询群里的会员
 	members, err := v.group.GroupDB().QueryMembersWithGroupNo(v.channelID)
 	if err != nil {
@@ -53,12 +52,8 @@ func (v *Visitor) loginHandler() error {
 	return nil
 }
 
-func (v *Visitor) redisLastLoginTimeKey() string {
-	return fmt.Sprintf("visitorlastloginat:%s", v.channelID)
-}
-
-func (v *Visitor) loginedInShortTime() (bool, error) {
-	key := v.redisLastLoginTimeKey()
+func (v *LoginLogic) loginedInShortTime() (bool, error) {
+	key := v.redisLastLoginTimeCacheKey(v.channelID, v.visitor.UID)
 	redisCli := v.ctx.Cache()
 	value, err := redisCli.Get(key)
 	if err != nil {
@@ -69,7 +64,7 @@ func (v *Visitor) loginedInShortTime() (bool, error) {
 }
 
 // 发送上线信息到群频道，冷却时间30分钟
-func (v *Visitor) sendOnlineMsgToKefu() error {
+func (v *LoginLogic) sendOnlineMsgToKefu() error {
 	yes, err := v.loginedInShortTime()
 	if err != nil {
 		return err
@@ -98,7 +93,7 @@ func (v *Visitor) sendOnlineMsgToKefu() error {
 }
 
 // 发送客服离线消息给游客
-func (v *Visitor) sendKefuLeave(content string) error {
+func (v *LoginLogic) sendKefuLeave(content string) error {
 	if v.KefuOnline {
 		return nil
 	}

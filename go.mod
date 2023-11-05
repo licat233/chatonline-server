@@ -18,6 +18,7 @@ require (
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/gocraft/dbr/v2 v2.7.5
 	github.com/gomarkdown/markdown v0.0.0-20230716120725-531d2d74bc12
+	github.com/google/uuid v1.3.0
 	github.com/gookit/goutil v0.6.12
 	github.com/judwhite/go-svc v1.2.1
 	github.com/mattn/go-sqlite3 v1.14.17
@@ -88,7 +89,6 @@ require (
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/s2a-go v0.1.3 // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.8.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
