@@ -17,13 +17,13 @@ func (o *onlineDB) QueryOnlineWithUIDs(uids []string) ([]*onlineStatusModel, err
 }
 
 // 查询uid的在线信息
-func (o *onlineDB) QueryOnlineWithUID(uid string) (*onlineStatusModel, error) {
+func (o *onlineDB) QueryOnlineWithUID(uid string) ([]*onlineStatusModel, error) {
 	if len(uid) == 0 {
 		return nil, nil
 	}
-	var model *onlineStatusModel
-	_, err := o.session.Select("*").From("user_online").Where("`uid`=?", uid).Load(&model)
-	return model, err
+	var models []*onlineStatusModel
+	_, err := o.session.Select("*").From("user_online").Where("`uid`=?", uid).Load(&models)
+	return models, err
 }
 
 // Insert 添加用户

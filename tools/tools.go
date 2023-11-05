@@ -205,3 +205,18 @@ func IsImageURL(input string) bool {
 
 	return false
 }
+
+// 移除重复的元素
+func SliceRemoveDuplicates(strSlice []string) []string {
+	encountered := map[string]bool{} // 用于记录出现过的字符串
+	result := []string{}             // 存储去重后的结果
+
+	for _, str := range strSlice {
+		if !encountered[str] {
+			encountered[str] = true
+			result = append(result, str)
+		}
+	}
+
+	return result
+}

@@ -261,18 +261,23 @@ func (l *LoginLogic) Handler(c *wkhttp.Context) {
 	}
 
 	//获取客服在线状态
-	onlineInfo, err := l.user.OnlineDB().QueryOnlineWithUID(l.kefu.UID)
+	onlines, err := l.user.OnlineDB().QueryOnlineWithUID(l.kefu.UID)
 	if err != nil {
 		l.Error("查询kefu在线信息出错", zap.Error(err))
 		tools.ServerError(c)
 		return
 	}
-	if onlineInfo == nil {
+	if len(onlines) == 0 {
 		//查找不到
 		//默认在线
 		l.KefuOnline = true
 	} else {
-		l.KefuOnline = onlineInfo.IsOnline()
+		for _, online := range onlines {
+			if online.IsOnline() {
+				l.KefuOnline = true
+				break
+			}
+		}
 	}
 
 	if !l.isOldVisitor {

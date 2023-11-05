@@ -9,6 +9,7 @@ import (
 
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/group"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/user"
+	"github.com/TangSengDaoDao/TangSengDaoDaoServer/tools"
 	"go.uber.org/zap"
 )
 
@@ -135,8 +136,8 @@ func (v *LoginLogic) assignKefu() (*user.Model, error) {
 		onlineUids = allUids
 	}
 
-	//取出所有的kefu user信息
-	kefuList, err := v.user.Db().QueryKefuByUIDs(allUids)
+	//取出onlineUids的kefu user信息
+	kefuList, err := v.user.Db().QueryKefuByUIDs(onlineUids)
 	if err != nil {
 		v.Error("查询用户信息错误", zap.Error(err))
 		return nil, err
@@ -151,8 +152,7 @@ func (v *LoginLogic) assignKefu() (*user.Model, error) {
 		return nil, errors.New("the current project does not have customer service")
 	}
 
-	//到了这一步，表示客服群里有在线的客服
-
+	//取出这些在线客服的群会员信息
 	var kefuMembers []*group.MemberModel
 	//筛选出可用会员
 	for _, kf := range kefuList {
@@ -300,6 +300,8 @@ func (v *Visitor) getOnlineUsers(uids []string) ([]string, error) {
 			onlineUserUids = append(onlineUserUids, onlineUser.UID)
 		}
 	}
+	//移除一些重复的uid
+	onlineUserUids = tools.SliceRemoveDuplicates(onlineUserUids)
 	//如果存在，直接返回
 	if len(onlineUserUids) != 0 {
 		return onlineUserUids, nil
