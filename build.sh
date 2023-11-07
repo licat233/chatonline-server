@@ -27,7 +27,7 @@ if ! CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags="-w -extldflags '-s
     exit 1
 fi
 
-echo "编译完成"
+echo "程序编译完成, 编译时间: "$(date +"%Y-%m-%d %H:%M:%S %Z")
 
 # exit 0
 
@@ -41,12 +41,12 @@ if ! docker buildx build --platform linux/amd64 --tag licat/chatonline-server:v4
     exit 1
 fi
 
-echo "docker镜像编译完成"
+echo "docker镜像编译完成, 编译时间: "$(date +"%Y-%m-%d %H:%M:%S %Z")
 echo "开始推送docker镜像到远程仓库"
 
 docker push licat/chatonline-server:v4
 
-echo "推送完成"
+echo "推送完成, 完成时间:"$(date +"%Y-%m-%d %H:%M:%S %Z")
 
 function clearup_none_image() {
     # 列出所有的镜像，并获取 tag 为 "none" 的镜像的 IMAGE ID
@@ -67,3 +67,5 @@ function clearup_none_image() {
 }
 
 clearup_none_image
+
+echo ">>>>>>>>>>>>>>>>>> successful <<<<<<<<<<<<<<<<<<"
