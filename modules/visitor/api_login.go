@@ -148,7 +148,7 @@ func (l *LoginLogic) Handler(c *wkhttp.Context) {
 		//如果是本地链接，拒绝访问
 		//如果是模拟器进行请求，拒绝访问
 		//如果是PC平台，但显示却是手机平台，那就表示不正常的请求，直接拒绝响应
-		if tools.IsLocalLink(referer) || ua.Mobile() == tools.IsDesktopDevice(req.Platform) {
+		if tools.IsLocalLink(referer) || (tools.IsDesktopDevice(req.Platform) && ua.Mobile()) {
 			c.ResponseErrorWithStatus(errors.New("abnormal device requests"), 403)
 			return
 		}

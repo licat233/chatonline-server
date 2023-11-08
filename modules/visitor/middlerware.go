@@ -49,3 +49,7 @@ func (v *Visitor) IPRequestLimitMiddleware(maxCount int) wkhttp.HandlerFunc {
 		c.Next()
 	}
 }
+
+// func (v *Visitor) rejectMockDevice(c *wkhttp.Context) {
+
+// }
