@@ -139,17 +139,21 @@ func (l *LoginLogic) Handler(c *wkhttp.Context) {
 	ua := useragent.New(c.Context.Request.UserAgent())
 	// 如果是机器人
 	if ua.Bot() {
-		c.ResponseErrorWithStatus(errors.New("abnormal bot request"), 403)
+		c.ResponseWithStatus(403, "abnormal bot request")
 		return
 	}
 
 	//如果当前不是debug模式
 	if l.ctx.GetConfig().Mode != "debug" {
 		//如果是本地链接，拒绝访问
+		if tools.IsLocalLink(referer) {
+			c.ResponseWithStatus(403, "abnormal device requests")
+			return
+		}
 		//如果是模拟器进行请求，拒绝访问
 		//如果是PC平台，但显示却是手机平台，那就表示不正常的请求，直接拒绝响应
-		if tools.IsLocalLink(referer) || (tools.IsDesktopDevice(req.Platform) && ua.Mobile()) {
-			c.ResponseErrorWithStatus(errors.New("abnormal device requests"), 403)
+		if tools.IsDesktopDevice(req.Platform) && ua.Mobile() {
+			c.ResponseWithStatus(403, "abnormal device requests")
 			return
 		}
 	}

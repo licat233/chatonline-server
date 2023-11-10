@@ -3,6 +3,7 @@ package visitor
 import (
 	"os"
 	"strings"
+	"time"
 
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/common"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/config"
@@ -44,7 +45,7 @@ func (v *LoginLogic) loginHandler() error {
 	}
 	//发送游客上线信息给客服
 	go v.sendOnlineMsgToKefu()
-	//发送客服不在线的信息给客服
+	//发送客服不在线的信息给游客
 	if !v.KefuOnline {
 		content := os.Getenv("TS_OFFLINE_MESSAGE ")
 		go v.sendKefuLeave(content)
@@ -72,6 +73,8 @@ func (v *LoginLogic) sendOnlineMsgToKefu() error {
 	if yes {
 		return nil
 	}
+	// 2秒钟后发送
+	time.Sleep(2 * time.Second)
 	//发送游客的上线信息给客服
 	err = v.ctx.SendMessage(&config.MsgSendReq{
 		FromUID:     v.visitor.UID,
@@ -108,5 +111,7 @@ func (v *LoginLogic) sendKefuLeave(content string) error {
 	if yes {
 		return nil
 	}
+	//2秒钟后发送
+	time.Sleep(2 * time.Second)
 	return v.sendToVisitor(content)
 }

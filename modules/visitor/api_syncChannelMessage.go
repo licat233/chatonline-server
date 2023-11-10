@@ -54,19 +54,19 @@ func (l *SyncChannelMessageLogic) Handler(c *wkhttp.Context) {
 		return
 	}
 	if err = req.ValueCheck(); err != nil {
-		c.ResponseErrorWithStatus(err, 400)
+		c.ResponseError(err)
 		return
 	}
 
 	//校验token
 	visitorUID, err := l.getVisitorUid(req.IMToken)
 	if err != nil {
-		c.ResponseErrorWithStatus(err, 500)
+		c.ResponseWithStatus(500, err.Error())
 		return
 	}
 
 	if visitorUID == "" {
-		c.ResponseErrorWithStatus(errors.New("authorization fail"), 401)
+		c.ResponseWithStatus(401, "authorization fail")
 		return
 	}
 	in := &config.SyncChannelMessageReq{

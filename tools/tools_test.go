@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/tools"
+	"github.com/mssola/useragent"
 )
 
 func TestScypto(t *testing.T) {
@@ -39,4 +40,11 @@ func TestRune(t *testing.T) {
 	// s = "licat233"
 	// fmt.Println("[]rune:", []rune(s))
 	// fmt.Println("[]byte:", []byte(s))
+}
+
+func Test_ua(t *testing.T) {
+	ua := useragent.New("ozilla/5.0 (iPhone; CPU iPhone OS 17_1_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.43(0x18002b29) NetType/WIFI Language/zh_CN")
+	fmt.Println(ua.Mobile())
+	res := tools.IsDesktopDevice("iPhone")
+	fmt.Println(res)
 }

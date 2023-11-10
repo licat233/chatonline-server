@@ -1,7 +1,6 @@
 package tools
 
 import (
-	"errors"
 	"log"
 	"net"
 	"net/http"
@@ -76,7 +75,7 @@ func NewUUID(uuids ...string) string {
 }
 
 func ServerError(c *wkhttp.Context) {
-	c.ResponseErrorWithStatus(errors.New("server error"), 500)
+	c.ResponseWithStatus(500, "server error")
 	c.Abort()
 }
 
