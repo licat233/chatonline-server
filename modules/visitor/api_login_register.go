@@ -227,7 +227,5 @@ func (v *LoginLogic) sendAutoReply() error {
 	if len(autoReplyContent) == 0 {
 		return nil
 	}
-	//3秒钟后再发送
-	time.Sleep(3 * time.Second)
 	return v.sendToVisitor(autoReplyContent)
 }
