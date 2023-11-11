@@ -1,12 +1,15 @@
 package tools
 
 import (
+	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/pkg/wkhttp"
 	"github.com/oschwald/geoip2-golang"
@@ -218,4 +221,19 @@ func SliceRemoveDuplicates(strSlice []string) []string {
 	}
 
 	return result
+}
+
+func RandomAvatarPath() string {
+	var store []string
+	for i := 0; i <= 487; i++ {
+		if i <= 100 {
+			store = append(store, fmt.Sprintf("%d.jpg", i))
+		}
+		store = append(store, fmt.Sprintf("avatar%d.jpeg", i))
+	}
+	newRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+	randomIndex := newRand.Intn(len(store))
+	avatarName := store[randomIndex]
+	storeUrl := "https://licat-store.oss-cn-hongkong.aliyuncs.com/lib/comment/avatar"
+	return fmt.Sprintf("%s/%s", storeUrl, avatarName)
 }

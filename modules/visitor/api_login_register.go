@@ -9,6 +9,7 @@ import (
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/base/event"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/group"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/modules/user"
+	"github.com/TangSengDaoDao/TangSengDaoDaoServer/tools"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/common"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/config"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/pkg/util"
@@ -110,6 +111,13 @@ func (v *LoginLogic) registerHandler(c *wkhttp.Context) error {
 
 	if err != nil {
 		v.Error("创建游客群频道失败！", zap.Error(err))
+		return err
+	}
+
+	//修改群头像
+	err = v.group.GroupDB().UpdateVisitorGroupAvatar(tools.RandomAvatarPath(), v.channelID)
+	if err != nil {
+		v.Error("更新群头像失败", zap.Error(err))
 		return err
 	}
 
