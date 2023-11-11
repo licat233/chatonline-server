@@ -19,26 +19,26 @@ import (
 )
 
 // 创建游客
-func (v *LoginLogic) registerHandler(c *wkhttp.Context) error {
+func (l *LoginLogic) registerHandler(c *wkhttp.Context) error {
 	var err error
-	v.visitor, err = v.createUserModel()
+	l.visitor, err = l.createUserModel()
 	if err != nil {
-		v.Error("创建游客user数据出错:", zap.Error(err))
+		l.Error("创建游客user数据出错:", zap.Error(err))
 		return err
 	}
 	//插入数据库
-	tx := v.user.Db().Tx()
+	tx := l.user.Db().Tx()
 	defer func() {
 		if err := recover(); err != nil {
-			v.Error(fmt.Sprintf("出现了恐慌: %s", err))
+			l.Error(fmt.Sprintf("出现了恐慌: %s", err))
 			tx.Rollback()
 			panic(err)
 		}
 	}()
 
 	var txEvent = func() error {
-		if err = v.user.Db().InsertTx(v.visitor, tx); err != nil {
-			v.Error("注册visitor用户失败", zap.Error(err))
+		if err = l.user.Db().InsertTx(l.visitor, tx); err != nil {
+			l.Error("注册visitor用户失败", zap.Error(err))
 			return err
 		}
 
@@ -61,15 +61,15 @@ func (v *LoginLogic) registerHandler(c *wkhttp.Context) error {
 		// }
 
 		//发送用户注册事件
-		eventID, err := v.ctx.EventBegin(&wkevent.Data{
+		eventID, err := l.ctx.EventBegin(&wkevent.Data{
 			Event: event.EventUserRegister,
 			Type:  wkevent.Message,
 			Data: map[string]interface{}{
-				"uid": v.visitor.UID,
+				"uid": l.visitor.UID,
 			},
 		}, tx)
 		if err != nil {
-			v.Error("开启事件失败！", zap.Error(err))
+			l.Error("开启事件失败！", zap.Error(err))
 			return err
 		}
 
@@ -77,84 +77,81 @@ func (v *LoginLogic) registerHandler(c *wkhttp.Context) error {
 		if err = tx.Commit(); err != nil {
 			return err
 		}
-		v.ctx.EventCommit(eventID)
+		l.ctx.EventCommit(eventID)
 		return nil
 	}
 
 	if err := txEvent(); err != nil {
 		tx.Rollback()
-		v.Error("数据库事务提交失败", zap.Error(err))
+		l.Error("数据库事务提交失败", zap.Error(err))
 		return err
 	}
 
-	v.visitor, err = v.user.Db().QueryByUID(v.visitor.UID)
+	l.visitor, err = l.user.Db().QueryByUID(l.visitor.UID)
 	if err != nil {
-		v.Error("查询user失败", zap.Error(err))
+		l.Error("查询user失败", zap.Error(err))
 		return err
 	}
-	if v.visitor == nil {
-		v.Error("查询不到刚注册的user", zap.Error(err))
+	if l.visitor == nil {
+		l.Error("查询不到刚注册的user", zap.Error(err))
 		return errors.New("查询不到刚注册的user")
 	}
 
-	v.channelID = v.genChannelID()
-	groupName := v.genGroupName()
+	l.channelID = l.genChannelID()
+	groupName := l.genGroupName()
 	//开启一个群聊频道，进行交流
-	_, err = v.group.VisitorGroupCreate(&group.VisitorGroupCreateReq{
-		CreateUid:  v.visitor.UID,
+	g, err := l.group.VisitorGroupCreate(&group.VisitorGroupCreateReq{
+		CreateUid:  l.visitor.UID,
 		CreateName: OperatorName,
 		GroupName:  groupName,
-		GroupNo:    v.channelID,
-		Notice:     v.genVisitorInfo(),
-		Members:    []string{v.kefu.UID},
+		GroupNo:    l.channelID,
+		Notice:     l.genVisitorInfo(),
+		Members:    []string{l.kefu.UID},
 	})
 
 	if err != nil {
-		v.Error("创建游客群频道失败！", zap.Error(err))
+		l.Error("创建游客群频道失败！", zap.Error(err))
 		return err
 	}
 
 	//修改群头像
-	err = v.group.GroupDB().UpdateVisitorGroupAvatar(tools.RandomAvatarPath(), v.channelID)
+	err = l.group.UpdateVisitorGroupAvatar(tools.RandomAvatar(), g.GroupNo)
 	if err != nil {
-		v.Error("更新群头像失败", zap.Error(err))
+		l.Error("更新群头像失败", zap.Error(err))
 		return err
 	}
 
-	v.info.Id = v.visitor.Id
-	v.info.Name = groupName
+	l.info.Id = l.visitor.Id
+	l.info.Name = groupName
 
-	// go v.SendVisitorInfo() //不用发了，公告有显示
-	//发送自动回复消息给游客
-	go v.sendAutoReply()
 	return nil
 }
 
 // 生成群名称，前提是visitor存在
-func (v *LoginLogic) genGroupName() string {
-	return fmt.Sprintf("%s%d", v.info.Name, v.visitor.Id)
+func (l *LoginLogic) genGroupName() string {
+	return fmt.Sprintf("%s%d", l.info.Name, l.visitor.Id)
 }
 
 // 创建游客用户数据
-func (v *LoginLogic) createUserModel() (*user.Model, error) {
+func (l *LoginLogic) createUserModel() (*user.Model, error) {
 	var (
 		shortNo = ""
 		err     error
 	)
-	if v.ctx.GetConfig().ShortNo.NumOn {
-		shortNo, err = v.user.CommonService().GetShortno()
+	if l.ctx.GetConfig().ShortNo.NumOn {
+		shortNo, err = l.user.CommonService().GetShortno()
 		if err != nil {
-			v.Error("获取短编号失败！", zap.Error(err))
+			l.Error("获取短编号失败！", zap.Error(err))
 			return nil, err
 		}
 	} else {
 		shortNo = util.Ten2Hex(time.Now().UnixNano())
 	}
-	uid := v.ctx.GetConfig().VisitorUIDPrefix + genUuid()
+	uid := l.ctx.GetConfig().VisitorUIDPrefix + genUuid()
 	return &user.Model{
 		AppID:             "",
 		UID:               uid,
-		Name:              v.info.Name,
+		Name:              l.info.Name,
 		Username:          "",
 		Email:             "",
 		Password:          "",
@@ -192,13 +189,13 @@ func (v *LoginLogic) createUserModel() (*user.Model, error) {
 }
 
 // 发送游客拜访信息到群频道，不发也可以，因为已经在群公告显示了游客信息
-func (v *LoginLogic) SendVisitorInfo() {
-	var sentContent string = v.genVisitorInfo()
+func (l *LoginLogic) SendVisitorInfo() {
+	var sentContent string = l.genVisitorInfo()
 
 	//发送游客的来访信息给客服
-	err := v.ctx.SendMessage(&config.MsgSendReq{
-		FromUID:     v.visitor.UID,
-		ChannelID:   v.channelID,
+	err := l.ctx.SendMessage(&config.MsgSendReq{
+		FromUID:     l.visitor.UID,
+		ChannelID:   l.channelID,
 		ChannelType: CurrentChannelType.Uint8(),
 		Payload: []byte(util.ToJson(map[string]interface{}{
 			"content": sentContent,
@@ -209,23 +206,23 @@ func (v *LoginLogic) SendVisitorInfo() {
 		},
 	})
 	if err != nil {
-		v.Error("发送游客来访消息失败", zap.Error(err))
+		l.Error("发送游客来访消息失败", zap.Error(err))
 	}
 }
 
-func (v *LoginLogic) genVisitorInfo() string {
+func (l *LoginLogic) genVisitorInfo() string {
 	var sentContent string
-	sentContent = fmt.Sprintf("来访游客id: %d", v.info.Id)
-	sentContent = fmt.Sprintf("%s\nip: %s", sentContent, v.info.Ip)
+	sentContent = fmt.Sprintf("来访游客id: %d", l.info.Id)
+	sentContent = fmt.Sprintf("%s\nip: %s", sentContent, l.info.Ip)
 	sentContent = fmt.Sprintf("%s\n时间: %s", sentContent, time.Now().Format("2006-01-02 15:04:05"))
-	sentContent = fmt.Sprintf("%s\n来源: %s", sentContent, v.info.Referer)
-	sentContent = fmt.Sprintf("%s\n地区: %s", sentContent, v.info.Region)
-	sentContent = fmt.Sprintf("%s\n城市: %s", sentContent, v.info.City)
-	sentContent = fmt.Sprintf("%s\n平台: %s", sentContent, v.info.Platform)
-	sentContent = fmt.Sprintf("%s\n设备: %s", sentContent, v.info.Device)
-	sentContent = fmt.Sprintf("%s\n系统: %s", sentContent, v.info.Os)
-	sentContent = fmt.Sprintf("%s\n浏览器: %s", sentContent, v.info.Browser)
-	sentContent = fmt.Sprintf("%s\n语言: %s", sentContent, v.info.Language)
+	sentContent = fmt.Sprintf("%s\n来源: %s", sentContent, l.info.Referer)
+	sentContent = fmt.Sprintf("%s\n地区: %s", sentContent, l.info.Region)
+	sentContent = fmt.Sprintf("%s\n城市: %s", sentContent, l.info.City)
+	sentContent = fmt.Sprintf("%s\n平台: %s", sentContent, l.info.Platform)
+	sentContent = fmt.Sprintf("%s\n设备: %s", sentContent, l.info.Device)
+	sentContent = fmt.Sprintf("%s\n系统: %s", sentContent, l.info.Os)
+	sentContent = fmt.Sprintf("%s\n浏览器: %s", sentContent, l.info.Browser)
+	sentContent = fmt.Sprintf("%s\n语言: %s", sentContent, l.info.Language)
 	return sentContent
 }
 

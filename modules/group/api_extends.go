@@ -86,6 +86,7 @@ func (g *Group) VisitorGroupCreate(req *VisitorGroupCreateReq) (*Model, error) {
 		Creator:             creatorUid,
 		Status:              GroupStatusNormal,
 		Version:             version,
+		ForbiddenAddFriend:  1,
 		AllowViewHistoryMsg: int(common.GroupAllowViewHistoryMsgEnabled),
 		Notice:              req.Notice,
 	}, tx)
@@ -447,5 +448,28 @@ func (g *Group) VisitorMemberRemove(req *VisitorMemberRemoveReq) error {
 		return errors.New("调用IM的移除订阅者接口失败！")
 	}
 
+	return nil
+}
+
+// 修改游客群头像
+func (g *Group) UpdateVisitorGroupAvatar(groupAvatarPath string, groupNo string) error {
+	err := g.db.updateAvatar(groupAvatarPath, groupNo)
+	if err != nil {
+		g.Error("头像修改失败！", zap.String("group_no", groupNo), zap.Error(err))
+		return err
+	}
+	// 发送群头像更新命令
+	err = g.ctx.SendCMD(config.MsgCMDReq{
+		ChannelID:   groupNo,
+		ChannelType: common.ChannelTypeGroup.Uint8(),
+		CMD:         common.CMDGroupAvatarUpdate,
+		Param: map[string]interface{}{
+			"group_no": groupNo,
+		},
+	})
+	if err != nil {
+		g.Error("发送群头像更新命令失败！", zap.String("groupNo", groupNo), zap.Error(err))
+		return err
+	}
 	return nil
 }

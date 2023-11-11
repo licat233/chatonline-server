@@ -21,19 +21,19 @@ func genUuid() string {
 	return uuidWithoutHyphen
 }
 
-func (v *LoginLogic) genChannelID() string {
-	return tools.NewUUID(v.visitor.UID, v.req.ProjectUid)
+func (l *LoginLogic) genChannelID() string {
+	return tools.NewUUID(l.visitor.UID, l.req.ProjectUid)
 }
 
-func (v *LoginLogic) registerIMToken(token string) (err error) {
-	imResp, err := v.ctx.UpdateIMToken(config.UpdateIMTokenReq{
-		UID:         v.visitor.UID,
+func (l *LoginLogic) registerIMToken(token string) (err error) {
+	imResp, err := l.ctx.UpdateIMToken(config.UpdateIMTokenReq{
+		UID:         l.visitor.UID,
 		Token:       token,
 		DeviceFlag:  config.DeviceFlag(config.Web), //注册设备的标记 0.app 1.web 2.PC
 		DeviceLevel: config.DeviceLevelSlave,
 	})
 	if err != nil {
-		v.Error("更新IM的token失败！", zap.Error(err))
+		l.Error("更新IM的token失败！", zap.Error(err))
 		return err
 	}
 	if imResp.Status == config.UpdateTokenStatusBan {
@@ -42,86 +42,86 @@ func (v *LoginLogic) registerIMToken(token string) (err error) {
 	return nil
 }
 
-func (v *LoginLogic) GenVisitorIMToken() (string, error) {
+func (l *LoginLogic) GenVisitorIMToken() (string, error) {
 	//获取缓存的token
-	key := v.getVisitorTokenCacheKey(v.channelID, v.visitor.UID)
-	token, err := v.ctx.Cache().Get(key)
+	key := l.getVisitorTokenCacheKey(l.channelID, l.visitor.UID)
+	token, err := l.ctx.Cache().Get(key)
 	if err != nil {
-		v.Error("获取visitor的token错误", zap.Error(err))
+		l.Error("获取visitor的token错误", zap.Error(err))
 		return "", errors.New("获取visitor的token错误")
 	}
 	if token != "" {
 		return token, nil
 	}
 	token = util.GenerUUID()
-	err = v.registerIMToken(token)
+	err = l.registerIMToken(token)
 	if err != nil {
 		return "", errors.New("注册im token失败！")
 	}
-	err = v.ctx.Cache().SetAndExpire(key, token, v.ctx.GetConfig().Cache.TokenExpire)
+	err = l.ctx.Cache().SetAndExpire(key, token, l.ctx.GetConfig().Cache.TokenExpire)
 	if err != nil {
-		v.Error("设置token缓存失败！", zap.Error(err))
+		l.Error("设置token缓存失败！", zap.Error(err))
 		return "", errors.New("设置token缓存失败！")
 	}
 	//还需要设置token所对应的用户uid，便于后期通过token查询其user_uid
-	err = v.ctx.Cache().SetAndExpire(v.getVisitorUidCacheKey(token), v.visitor.UID, v.ctx.GetConfig().Cache.TokenExpire)
+	err = l.ctx.Cache().SetAndExpire(l.getVisitorUidCacheKey(token), l.visitor.UID, l.ctx.GetConfig().Cache.TokenExpire)
 	if err != nil {
-		v.Error("设置token缓存失败！", zap.Error(err))
+		l.Error("设置token缓存失败！", zap.Error(err))
 		return "", errors.New("设置token缓存失败！")
 	}
 	return token, nil
 }
 
-func (v *LoginLogic) RemoveMembers(members []string) error {
+func (l *LoginLogic) RemoveMembers(members []string) error {
 	if len(members) == 0 {
 		return nil
 	}
 	//排除自己
 	uids := []string{}
 	for _, uid := range members {
-		if uid != v.visitor.UID {
+		if uid != l.visitor.UID {
 			uids = append(uids, uid)
 		}
 	}
-	err := v.group.VisitorMemberRemove(&group.VisitorMemberRemoveReq{
-		OperatorUid:  v.visitor.UID,
+	err := l.group.VisitorMemberRemove(&group.VisitorMemberRemoveReq{
+		OperatorUid:  l.visitor.UID,
 		OperatorName: OperatorName,
 		Members:      uids,
-		GroupNo:      v.channelID,
+		GroupNo:      l.channelID,
 	})
 	if err != nil {
-		v.Error("移除群会员失败", zap.Error(err))
+		l.Error("移除群会员失败", zap.Error(err))
 		return err
 	}
 	return nil
 }
 
-func (v *LoginLogic) AddMembers(members []string) error {
+func (l *LoginLogic) AddMembers(members []string) error {
 	if len(members) == 0 {
 		return nil
 	}
 	//排除自己
 	uids := []string{}
 	for _, uid := range members {
-		if uid != v.visitor.UID {
+		if uid != l.visitor.UID {
 			uids = append(uids, uid)
 		}
 	}
-	err := v.group.VisitorMemberAdd(&group.VisitorMemberAddReq{
-		OperatorUid:  v.visitor.UID,
+	err := l.group.VisitorMemberAdd(&group.VisitorMemberAddReq{
+		OperatorUid:  l.visitor.UID,
 		OperatorName: OperatorName,
 		Members:      uids,
-		GroupNo:      v.channelID,
+		GroupNo:      l.channelID,
 	})
 	if err != nil {
-		v.Error("添加群会员失败", zap.Error(err))
+		l.Error("添加群会员失败", zap.Error(err))
 		return err
 	}
 	return nil
 }
 
 // 发送消息给游客
-func (v *LoginLogic) sendToVisitor(content string) error {
+func (l *LoginLogic) sendToVisitor(content string) error {
 	content = strings.TrimSpace(content)
 	if len(content) == 0 {
 		return nil
@@ -130,9 +130,9 @@ func (v *LoginLogic) sendToVisitor(content string) error {
 	if tools.IsImageURL(content) {
 		contentType = common.Image
 	}
-	err := v.ctx.SendMessage(&config.MsgSendReq{
-		FromUID:     v.kefu.UID,
-		ChannelID:   v.channelID,
+	err := l.ctx.SendMessage(&config.MsgSendReq{
+		FromUID:     l.kefu.UID,
+		ChannelID:   l.channelID,
 		ChannelType: CurrentChannelType.Uint8(),
 		Payload: []byte(util.ToJson(map[string]interface{}{
 			"content": content,
@@ -143,8 +143,27 @@ func (v *LoginLogic) sendToVisitor(content string) error {
 		},
 	})
 	if err != nil {
-		v.Error("发送消息给游客失败", zap.Error(err))
+		l.Error("发送消息给游客失败", zap.Error(err))
 		return err
 	}
 	return nil
+}
+
+// 发送客服离线消息给游客
+func (l *LoginLogic) sendKefuLeave(content string) error {
+	if l.KefuOnline {
+		return nil
+	}
+	content = strings.TrimSpace(content)
+	if len(content) == 0 {
+		return nil
+	}
+	yes, err := l.loginedInShortTime()
+	if err != nil {
+		return err
+	}
+	if yes {
+		return nil
+	}
+	return l.sendToVisitor(content)
 }

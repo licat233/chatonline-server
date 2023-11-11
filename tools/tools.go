@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -223,7 +224,7 @@ func SliceRemoveDuplicates(strSlice []string) []string {
 	return result
 }
 
-func RandomAvatarPath() string {
+func RandomAvatar() string {
 	var store []string
 	for i := 0; i <= 487; i++ {
 		if i <= 100 {
@@ -234,6 +235,9 @@ func RandomAvatarPath() string {
 	newRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 	randomIndex := newRand.Intn(len(store))
 	avatarName := store[randomIndex]
-	storeUrl := "https://licat-store.oss-cn-hongkong.aliyuncs.com/lib/comment/avatar"
+	storeUrl := os.Getenv("TS_AVATAR_FILE_PATH")
+	if storeUrl == "" {
+		storeUrl = "https://licat-store.oss-cn-hongkong.aliyuncs.com/lib/comment/avatar"
+	}
 	return fmt.Sprintf("%s/%s", storeUrl, avatarName)
 }

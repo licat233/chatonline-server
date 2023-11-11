@@ -4,6 +4,7 @@ package visitor
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -335,5 +336,27 @@ func (l *LoginLogic) Handler(c *wkhttp.Context) {
 		c.Writer.Write(encryptData)
 	} else {
 		c.Response(loginInfo)
+	}
+
+	l.SuccessCallBack()
+}
+
+// 登录成功后的回调函数
+func (l *LoginLogic) SuccessCallBack() {
+	if !l.isOldVisitor {
+		//发送自动回复消息给游客
+		go func() {
+			l.sendAutoReply()
+		}()
+	} else {
+		//发送游客上线信息给客服
+		go func() {
+			l.sendOnlineMsgToKefu()
+		}()
+	}
+	//发送客服不在线的信息给游客
+	if !l.KefuOnline {
+		content := os.Getenv("TS_OFFLINE_MESSAGE ")
+		go l.sendKefuLeave(content)
 	}
 }

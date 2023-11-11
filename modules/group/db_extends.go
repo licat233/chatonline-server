@@ -22,15 +22,6 @@ func (d *DB) UpdateMemberRemark(id int64, remark string) error {
 	return err
 }
 
-// 修改群头像
-func (d *DB) UpdateVisitorGroupAvatar(avatar string, groupNo string) error {
-	_, err := d.session.Update("group").SetMap(map[string]interface{}{
-		"avatar":           avatar,
-		"is_upload_avatar": 1,
-	}).Where("group_no=?", groupNo).Exec()
-	return err
-}
-
 // 查找可用的客服
 // visitorUID是需要排除掉的uid
 func (d *DB) QueryKefuMembers(groupNo string, visitorUID string) ([]*MemberModel, error) {
