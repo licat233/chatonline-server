@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/TangSengDaoDao/TangSengDaoDaoServer/pkg/util"
 	"github.com/TangSengDaoDao/TangSengDaoDaoServer/tools"
 	"github.com/mssola/useragent"
 )
@@ -47,4 +48,8 @@ func Test_ua(t *testing.T) {
 	fmt.Println(ua.Mobile())
 	res := tools.IsDesktopDevice("iPhone")
 	fmt.Println(res)
+}
+
+func TestMd5(t *testing.T) {
+	fmt.Println(util.MD5(util.MD5("zxcvbnm,,,")))
 }

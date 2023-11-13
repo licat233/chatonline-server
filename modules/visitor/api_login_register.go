@@ -97,8 +97,10 @@ func (l *LoginLogic) registerHandler(c *wkhttp.Context) error {
 		return errors.New("查询不到刚注册的user")
 	}
 
+	l.info.Id = l.visitor.Id
 	l.channelID = l.genChannelID()
 	groupName := l.genGroupName()
+	l.info.Name = groupName
 	//开启一个群聊频道，进行交流
 	g, err := l.group.VisitorGroupCreate(&group.VisitorGroupCreateReq{
 		CreateUid:  l.visitor.UID,
@@ -120,9 +122,6 @@ func (l *LoginLogic) registerHandler(c *wkhttp.Context) error {
 		l.Error("更新群头像失败", zap.Error(err))
 		return err
 	}
-
-	l.info.Id = l.visitor.Id
-	l.info.Name = groupName
 
 	return nil
 }
@@ -211,19 +210,25 @@ func (l *LoginLogic) SendVisitorInfo() {
 }
 
 func (l *LoginLogic) genVisitorInfo() string {
-	var sentContent string
-	sentContent = fmt.Sprintf("来访游客id: %d", l.info.Id)
-	sentContent = fmt.Sprintf("%s\nip: %s", sentContent, l.info.Ip)
-	sentContent = fmt.Sprintf("%s\n时间: %s", sentContent, time.Now().Format("2006-01-02 15:04:05"))
-	sentContent = fmt.Sprintf("%s\n来源: %s", sentContent, l.info.Referer)
-	sentContent = fmt.Sprintf("%s\n地区: %s", sentContent, l.info.Region)
-	sentContent = fmt.Sprintf("%s\n城市: %s", sentContent, l.info.City)
-	sentContent = fmt.Sprintf("%s\n平台: %s", sentContent, l.info.Platform)
-	sentContent = fmt.Sprintf("%s\n设备: %s", sentContent, l.info.Device)
-	sentContent = fmt.Sprintf("%s\n系统: %s", sentContent, l.info.Os)
-	sentContent = fmt.Sprintf("%s\n浏览器: %s", sentContent, l.info.Browser)
-	sentContent = fmt.Sprintf("%s\n语言: %s", sentContent, l.info.Language)
-	return sentContent
+	contents := []string{
+		fmt.Sprintf("来访游客id: %d", l.info.Id),
+		fmt.Sprintf("来源: %s", tools.CleanURL(l.info.Referer)),
+		fmt.Sprintf("时间: %s", time.Now().Format("2006-01-02 15:04:05")),
+		fmt.Sprintf("平台: %s", l.info.Platform),
+		fmt.Sprintf("设备: %s", l.info.Device),
+		fmt.Sprintf("系统: %s", l.info.Os),
+		fmt.Sprintf("浏览器: %s", l.info.Browser),
+		fmt.Sprintf("语言: %s", l.info.Language),
+		fmt.Sprintf("ip: %s", l.info.Ip),
+		fmt.Sprintf("地区: %s", l.info.Region),
+	}
+	if l.info.Region != l.info.City {
+		contents = append(contents, fmt.Sprintf("城市: %s", l.info.City))
+	}
+
+	//因为mysql中notic的字段长度为400，所以这里限制为400
+	info := tools.GenerateString(contents, "\n", 400)
+	return info
 }
 
 func (v *LoginLogic) sendAutoReply() error {

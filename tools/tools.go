@@ -11,6 +11,7 @@ import (
 	"path"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/TangSengDaoDao/TangSengDaoDaoServerLib/pkg/wkhttp"
 	"github.com/oschwald/geoip2-golang"
@@ -240,4 +241,31 @@ func RandomAvatar() string {
 		storeUrl = "https://licat-store.oss-cn-hongkong.aliyuncs.com/lib/comment/avatar"
 	}
 	return fmt.Sprintf("%s/%s", storeUrl, avatarName)
+}
+
+func CleanURL(urlString string) string {
+	parsedURL, err := url.Parse(urlString)
+	if err != nil {
+		return ""
+	}
+
+	// 获取域名和路径
+	cleanURL := parsedURL.Scheme + "://" + parsedURL.Host + parsedURL.Path
+
+	return cleanURL
+}
+
+func IsExceedsLengthLimit(str string, limit int) bool {
+	return utf8.RuneCountInString(str) > limit
+}
+
+func GenerateString(chars []string, sep string, limit int) string {
+	var result string
+	for _, char := range chars {
+		if IsExceedsLengthLimit(result+char, limit) {
+			return result
+		}
+		result += char
+	}
+	return result
 }
